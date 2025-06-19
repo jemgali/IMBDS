@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import Homepage from './Homepage'
+import './index.css'
+import Index from './Index.jsx'
 
 function App() {
+  
   return (
-    <Homepage>
-      
-    </Homepage>
+    <>
+      <Index />
+    </>
   )
 }
 
