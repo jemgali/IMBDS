@@ -1,13 +1,12 @@
 import React from 'react'
 import Layout from '../components/Layout'
-import Dashboard from '../components/Dashboard'
 
-const DashPage = () => {
+const ReportPage = () => {
   return (
     <Layout>
-      
+
     </Layout>
   )
 }
 
-export default DashPage
+export default ReportPage

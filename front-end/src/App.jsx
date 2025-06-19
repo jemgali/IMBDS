@@ -2,18 +2,21 @@
   import MapPage from './Pages/MapPage';
   import LoginPage from "./Pages/LoginPage";
   import UserPage from "./Pages/UserPage";
-  import UserManage from "./components/UserManage";
   import DashPage from "./Pages/DashPage";
-  import Dashboard from "./components/Dashboard";
+  import BusinessPage from "./Pages/BusinessPage";
+  import InvestiblePage from "./Pages/InvestiblePage";
+  import ReportPage from "./Pages/ReportPage";
 
   function App() {
     return (
       <Routes>  
         <Route path='/' element={<LoginPage />} />
-        <Route path='/Dashboard' element={<Dashboard />}/>
+        <Route path='/Dashboard' element={<DashPage />}/>
         <Route path='/Map' element={<MapPage/>}/>
+        <Route path='/Business' element={<BusinessPage/>}/>
+        <Route path='/Investible' element={<InvestiblePage/>}/>
         <Route path='/User' element={<UserPage/>}/>
-        <Route path='/UserManage' element={<UserManage />}/>
+        <Route path='/Reports' element={<ReportPage/>}/>
       </Routes>
 
   

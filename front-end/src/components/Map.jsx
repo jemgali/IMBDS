@@ -16,9 +16,6 @@ export default function Map() {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <Marker position={[16.6145, 120.3158]}>
-          <Popup>A pretty CSS3 popup.<br/>Easily customizable.</Popup>
-        </Marker>
       </MapContainer>
     </div>
   );
