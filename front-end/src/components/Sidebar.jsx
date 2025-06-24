@@ -6,9 +6,9 @@ export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <div className={`h-full bg-[#3F5BA9] text-white transition-all duration-300 shadow-lg ${collapsed ? "w-16" : "w-50"}`}>
+    <div className={`h-full bg-[#3F5BA9] text-white transition-all duration-300 shadow-lg  ${collapsed ? "w-16" : "w-50"}`}>
       {/* Burger Toggle Button */}
-      <div className="flex justify-end px-6 pt-4">
+      <div className="flex justify-end px-5.5 pt-4">
         <button onClick={() => setCollapsed(!collapsed)} className="text-white">
           <Bars3Icon className="h-6 w-6" />
         </button>
@@ -18,6 +18,7 @@ export default function Sidebar() {
       <ul className="space-y-2 mt-4">
         <SidebarItem to="/Dashboard" icon={<HomeIcon className="h-6 w-6" />} label="Dashboard" collapsed={collapsed} />
         <SidebarItem to="/Map" icon={<MapIcon className="h-6 w-6" />} label="Interactive Map" collapsed={collapsed} />
+        <SidebarItem to="/Investibles" icon={<UserIcon className="h-6 w-6" />} label="Investibles" collapsed={collapsed} />
         <SidebarItem to="/UserManage" icon={<UserIcon className="h-6 w-6" />} label="User Management" collapsed={collapsed} />
       </ul>
     </div>

@@ -1,5 +1,6 @@
 import React from "react"
 
+export default function Table(){
 const Table = ({columns = [], rows = []}) => {
   return (
     <div class="relative overflow-x-auto shadow-md sm:rounded-lg">
@@ -25,5 +26,4 @@ const Table = ({columns = [], rows = []}) => {
     </div>
   )
 }
-
-export default Table
+}

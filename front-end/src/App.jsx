@@ -3,8 +3,8 @@
   import LoginPage from "./Pages/LoginPage";
   import UserPage from "./Pages/UserPage";
   import UserManage from "./components/UserManage";
-  import DashPage from "./Pages/DashPage";
   import Dashboard from "./components/Dashboard";
+  import InvestiblePage from "./Pages/Investible";
 
   function App() {
     return (
@@ -12,6 +12,7 @@
         <Route path='/' element={<LoginPage />} />
         <Route path='/Dashboard' element={<Dashboard />}/>
         <Route path='/Map' element={<MapPage/>}/>
+        <Route path='/Investibles' element={<InvestiblePage/>}/>
         <Route path='/User' element={<UserPage/>}/>
         <Route path='/UserManage' element={<UserManage />}/>
       </Routes>

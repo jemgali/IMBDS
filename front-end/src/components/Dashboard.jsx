@@ -1,8 +1,8 @@
 import Layout from "./Layout"
-export default function Dashboard(){
-    return(
+export default function Dashboard() {
+    return (
         <Layout>
-        <div>asdasdasd</div>
+            <div>asdasdasd</div>
         </Layout>
     )
 }
