@@ -1,5 +1,7 @@
-export default function Header() {
-    return (
+import React from 'react'
+
+const Header = () => {
+  return (
         <div className="w-full flex-shrink-0  bg-[rgb(63,91,169)]">
             <header className="relative flex items-center justify-between p-4 ">
                 <div className="relative z-10 flex items-center gap-4 px-6">
@@ -12,5 +14,7 @@ export default function Header() {
                 </div>
             </header>
         </div>
-    );
+  )
 }
+
+export default Header

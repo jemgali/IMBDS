@@ -1,14 +1,20 @@
-import { useNavigate } from 'react-router-dom';
+import React from 'react'
+import { useNavigate } from 'react-router'
+import Header from '../components/Header'
+import Footer from '../components/Footer'
 
-export default function Login() {
-    const navigate = useNavigate();
+const LoginPage = () => {
+  const navigate = useNavigate();
 
     const handleLogin = (e) => {
         e.preventDefault(); // prevent page reload
         navigate('/Map');   // temporary redirect
     };
-    return (
-        <div className="h-full w-full bg-[#EDF1FA] flex flex-col items-center justify-center">
+  return (
+    <div className="flex flex-col min-h-screen bg-[#EDF1FA]">
+      <Header />
+        <main className="flex flex-1 items-center justify-center px-4">
+          <div className="h-full w-full bg-[#EDF1FA] flex flex-col items-center justify-center">
             <form onSubmit={handleLogin} className="space-y-6 w-full max-w-sm">
                 <div className="rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]">
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -35,6 +41,11 @@ export default function Login() {
                     Login
                 </button>
             </form>
-        </div>
-    );
+          </div>
+        </main>
+      <Footer />
+    </div>
+  )
 }
+
+export default LoginPage

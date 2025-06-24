@@ -1,9 +1,9 @@
-// Layout.jsx
+import React from 'react'
 import Sidebar from "./Sidebar";
 import Header  from "./Header";
 import Footer  from "./Footer";
 
-export default function Layout({ children }) {
+const Layout = ({ children }) => {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* header always on top */}
@@ -24,5 +24,7 @@ export default function Layout({ children }) {
         </div>
       </div>
     </div>
-  );
+  )
 }
+
+export default Layout
