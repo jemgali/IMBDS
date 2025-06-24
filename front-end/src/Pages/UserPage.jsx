@@ -5,9 +5,7 @@ import Table from "../components/Table";
 export default function UserPage() {
   return (
     <Layout>
-      <UserManage>
-        <Table/>
-      </UserManage>
+      <UserManage/>
     </Layout>
   );
 }

@@ -6,8 +6,12 @@ import {
   ArrowsPointingInIcon,
 } from '@heroicons/react/24/outline';
 import ReactDOM from 'react-dom/client';
-import L from 'leaflet';
+import 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.pm';
+import 'leaflet.pm/dist/leaflet.pm.css';
+
+
 
 function FullscreenControl({ onToggle, isFullscreen }) {
   const map = useMap();
@@ -53,6 +57,46 @@ function FullscreenControl({ onToggle, isFullscreen }) {
   return null;
 }
 
+function DrawingTools() {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map || !map.pm) return;
+
+    map.pm.addControls({
+      position: 'topleft',
+      drawMarker: false,
+      drawPolyline: false,
+      drawCircleMarker: false,
+      drawCircle: true,
+      drawPolygon: true,
+      drawRectangle: true,
+      editMode: true,
+      dragMode: true,
+      removalMode: true,
+    });
+
+    map.on('pm:create', (e) => {
+      const layer = e.layer;
+
+      if (layer instanceof L.Circle) {
+        const radius = layer.getRadius().toFixed(2);
+        layer.bindPopup(`Radius: ${radius} meters`).openPopup();
+      }
+
+      if (layer instanceof L.Polygon || layer instanceof L.Rectangle) {
+        const latlngs = layer.getLatLngs()[0];
+        const area = L.GeometryUtil.geodesicArea(latlngs);
+        const readableArea = (area / 1000000).toFixed(2);
+        layer.bindPopup(`Area: ${readableArea} km²`).openPopup();
+      }
+    });
+  }, [map]);
+
+  return null;
+}
+
+
 export default function Map() {
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -61,25 +105,28 @@ export default function Map() {
       <MapContainer
         center={[16.6145, 120.3158]}
         zoom={13}
+        maxZoom={18}
+        zoomSnap={0}
         scrollWheelZoom={true}
         className="w-full h-full z-10"
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
+          url="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
-        <Marker position={[16.6145, 120.3158]}>
+        {/* <Marker position={[16.6145, 120.3158]}>
           <Popup>
             A pretty CSS3 popup.
             <br />
             Easily customizable.
           </Popup>
-        </Marker>
+        </Marker> */}
 
         <FullscreenControl
           onToggle={() => setIsFullscreen(!isFullscreen)}
           isFullscreen={isFullscreen}
         />
+        <DrawingTools />
       </MapContainer>
     </div>
   );
