@@ -1,8 +1,7 @@
 import UserManage from "../components/UserManage";
 import Layout from "../components/Layout";
-import Table from "../components/Table";
 
-export default function UserPage() {
+export default function UserManagePage() {
   return (
     <Layout>
       <UserManage/>

@@ -1,6 +1,6 @@
 // Map.jsx
 import { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, GeoJSON, } from 'react-leaflet';
 import {
   ArrowsPointingOutIcon,
   ArrowsPointingInIcon,
@@ -49,9 +49,11 @@ function FullscreenControl({ onToggle, isFullscreen }) {
 
     // Clean up
     return () => {
-      root.unmount();
-      control.remove();
-    };
+      setTimeout(() => {
+    root.unmount();
+    control.remove();
+  }, 0);
+};
   }, [map, onToggle, isFullscreen]);
 
   return null;
@@ -65,9 +67,9 @@ function DrawingTools() {
 
     map.pm.addControls({
       position: 'topleft',
-      drawMarker: false,
-      drawPolyline: false,
-      drawCircleMarker: false,
+      drawMarker: true,
+      drawPolyline: true,
+      drawCircleMarker: true,
       drawCircle: true,
       drawPolygon: true,
       drawRectangle: true,
@@ -99,7 +101,16 @@ function DrawingTools() {
 
 export default function Map() {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [geoData, setGeoData] = useState(null);
 
+  useEffect(() => {
+  fetch('/assets/san_fernando_boundary.geojson')
+    .then(res => res.json())
+    .then(data => {
+      console.log("GeoJSON loaded:", data);
+      setGeoData(data);
+    });
+}, []);
   return (
     <div className={`${isFullscreen ? 'fixed inset-0 z-50' : 'w-full h-full'} bg-[#EDF1FA] flex`}>
       <MapContainer
@@ -114,13 +125,18 @@ export default function Map() {
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           url="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
-        {/* <Marker position={[16.6145, 120.3158]}>
-          <Popup>
-            A pretty CSS3 popup.
-            <br />
-            Easily customizable.
-          </Popup>
-        </Marker> */}
+
+        {geoData && (
+          <GeoJSON
+            data={geoData}
+            style={{
+              color: 'black',
+              weight: 2,
+              fillColor: 'transparent',
+              fillOpacity: 0.3,
+            }}
+          />
+        )}
 
         <FullscreenControl
           onToggle={() => setIsFullscreen(!isFullscreen)}
