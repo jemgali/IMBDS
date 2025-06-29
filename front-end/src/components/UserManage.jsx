@@ -35,6 +35,7 @@ export default function UserManage() {
         })
         .catch((err) => {
           console.error("PATCH error:", err.response?.data || err.message);
+          alert("Failed to update user.");
         });
       ;
     } else {
@@ -43,8 +44,8 @@ export default function UserManage() {
         setModalOpen(false);
       })
         .catch((err) => {
-          console.error("Edit failed:", err);
-          alert("Failed to update user.");
+          console.error("Add failed:", err);
+          alert("Failed to add user.");
         });
       ;
     }

@@ -4,6 +4,7 @@ from rest_framework import status
 from .models import User, Location, Business, Investible
 from .serializers import UserSerializer, LocationSerializer, LocationDetailSerializer, BusinessSerializer, InvestibleSerializer
 from rest_framework import viewsets
+from rest_framework.views import APIView
 
 #CRUD Users
 
@@ -111,6 +112,17 @@ def delete_location(request, pk):
     
     user.delete()
     return Response({'message': 'User deleted successfully'}, status=200)
+
+
+#Marker try
+class LocationView(APIView):
+    def post(self, request):
+        serializer = LocationSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 #CRUD Investibles
 @api_view(['GET']) # Fetch all investibles

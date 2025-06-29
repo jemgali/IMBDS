@@ -1,14 +1,22 @@
 from rest_framework import serializers
 from rest_framework import generics
 from .models import User, Business, Investible, Location
+from django.contrib.auth.hashers import make_password
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
             'user_id', 'username', 'first_name', 'last_name',
-            'email', 'user_role', 'user_status'
+            'email', 'user_role', 'user_status', 'password',
         ]
+
+    def create(self, validated_data):
+       
+        validated_data['password'] = make_password(validated_data['password'])
+        return super().create(validated_data)
+
+
 # class UserSerializer(serializers.ModelSerializer):
 #     class Meta:
 #         model = User
@@ -70,4 +78,13 @@ class LocationDetailSerializer(serializers.ModelSerializer):
     def get_invst(self, obj):
         return InvestibleSerializer(obj.invst).data
 
-        
+from django.contrib.gis.utils import LayerMapping
+from .models import Location
+
+location_mapping = {
+    'name': 'Name',
+    'geom': 'POINT',
+}
+
+lm = LayerMapping(Location, 'path/to/shapefile.shp', location_mapping)
+lm.save(strict=True)

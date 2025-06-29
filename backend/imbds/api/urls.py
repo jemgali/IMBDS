@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import UserViewSet
 # from .views import get_all_users, get_user, create_user, update_user, delete_user
 from .views import get_all_businesses, get_business, create_business, update_business, delete_business
-from .views import get_all_locations, get_location, create_location, update_location, delete_location
+from .views import get_all_locations, get_location, create_location, update_location, delete_location, LocationView
 from .views import get_all_investibles, get_investible, create_investible,update_investible, delete_investibles
 
 router = DefaultRouter()
@@ -31,6 +31,7 @@ urlpatterns = [
     path('locations/add/', create_location, name='create_location'),
     path('locations/update/<int:pk>/', update_location, name='update_location'),
     path('locations/delete/<int:pk>/', delete_location, name='delete_location'),
+    path('locations/', LocationView.as_view(), name='location-create'),
 
     # Investible URLs
     path('investibles/', get_all_investibles, name='get_all_investibles'),

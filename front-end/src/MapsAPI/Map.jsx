@@ -140,7 +140,7 @@ export default function Map() {
             data={geoData}
             style={{
               color: 'black',
-              weight: 2,
+              weight: 1,
               fillColor: 'transparent',
               fillOpacity: 0.3,
             }}
@@ -152,7 +152,7 @@ export default function Map() {
                 mouseover: function (e) {
                   const layer = e.target;
                   layer.setStyle({
-                    weight: 3,
+                    weight: 2,
                     color: '#FF8800',
                     fillOpacity: 0.5,
                   });

@@ -8,6 +8,7 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData, mode })
         first_name: userData?.first_name || "",
         last_name: userData?.last_name || "",
         email: userData?.email || "",
+        password: userData?.password || "",
         user_role: userData?.user_role || "",
         user_status: userData?.user_status || "offline",
     });
@@ -71,6 +72,18 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData, mode })
                         />
                     </div>
                     <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input
+                            name="password"
+                            type="password"
+                            value={form.password || ""}
+                            onChange={handleChange}
+                            className="w-full px-4 text-black"
+                            required={mode !== "edit"} // require password only when creating
+                        />
+                    </div>
+
+                    <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
                         <select
                             name="user_role"
@@ -81,7 +94,6 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData, mode })
                         >
                             <option value="">Select Role</option>
                             <option value="admin">Admin</option>
-                            <option value="investor">Investor</option>
                             <option value="employee">Employee</option>
                         </select>
                     </div>
