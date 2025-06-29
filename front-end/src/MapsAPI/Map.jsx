@@ -11,8 +11,6 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.pm';
 import 'leaflet.pm/dist/leaflet.pm.css';
 
-
-
 function FullscreenControl({ onToggle, isFullscreen }) {
   const map = useMap();
   const containerRef = useRef(null);
@@ -50,10 +48,10 @@ function FullscreenControl({ onToggle, isFullscreen }) {
     // Clean up
     return () => {
       setTimeout(() => {
-    root.unmount();
-    control.remove();
-  }, 0);
-};
+        root.unmount();
+        control.remove();
+      }, 0);
+    };
   }, [map, onToggle, isFullscreen]);
 
   return null;
@@ -102,17 +100,27 @@ function DrawingTools() {
 export default function Map() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [geoData, setGeoData] = useState(null);
+  const [hoveredBarangay, setHoveredBarangay] = useState(null);
 
   useEffect(() => {
-  fetch('/assets/san_fernando_boundary.geojson')
-    .then(res => res.json())
-    .then(data => {
-      console.log("GeoJSON loaded:", data);
-      setGeoData(data);
-    });
-}, []);
+    fetch('/assets/san_fernando_boundary.geojson')
+      .then(res => res.json())
+      .then(data => {
+        console.log("GeoJSON loaded:", data);
+        setGeoData(data);
+      });
+  }, []);
   return (
-    <div className={`${isFullscreen ? 'fixed inset-0 z-50' : 'w-full h-full'} bg-[#EDF1FA] flex`}>
+    <div className={`${isFullscreen ? 'fixed inset-0 z-50' : 'relative w-full h-full'} bg-[#EDF1FA] flex`}>
+      {hoveredBarangay && (
+        <div className="absolute top-3 left-15 z-[1000] bg-white shadow-md rounded p-3 max-w-xs">
+          <div className="text-sm font-semibold text-gray-700">Barangay</div>
+          <div className="text-lg font-bold text-gray-900">
+            {hoveredBarangay ? hoveredBarangay : <span className="text-gray-400 italic">Hover on a barangay</span>}
+          </div>
+        </div>
+
+      )}
       <MapContainer
         center={[16.6145, 120.3158]}
         zoom={13}
@@ -121,6 +129,7 @@ export default function Map() {
         scrollWheelZoom={true}
         className="w-full h-full z-10"
       >
+
         <TileLayer
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           url="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -135,8 +144,35 @@ export default function Map() {
               fillColor: 'transparent',
               fillOpacity: 0.3,
             }}
+            onEachFeature={(feature, layer) => {
+              const name = feature.properties.name || 'Barangay';
+
+              // Hover popup and highlight
+              layer.on({
+                mouseover: function (e) {
+                  const layer = e.target;
+                  layer.setStyle({
+                    weight: 3,
+                    color: '#FF8800',
+                    fillOpacity: 0.5,
+                  });
+                  setHoveredBarangay(name);
+                },
+                mouseout: function (e) {
+                  const layer = e.target;
+                  layer.setStyle({
+                    weight: 2,
+                    color: 'black',
+                    fillOpacity: 0.3,
+                  });
+                  setHoveredBarangay(null);
+                },
+              });
+            }}
+
           />
         )}
+
 
         <FullscreenControl
           onToggle={() => setIsFullscreen(!isFullscreen)}
