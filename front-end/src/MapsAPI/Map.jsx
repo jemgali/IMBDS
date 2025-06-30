@@ -11,6 +11,73 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.pm';
 import 'leaflet.pm/dist/leaflet.pm.css';
 
+function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
+  const map = useMap();
+  const layerRef = useRef(null);
+
+  useEffect(() => {
+    if (!data || !map) return;
+
+    const geoLayer = L.geoJSON(data, {
+      pmIgnore: true, // This is the key property to prevent PM editing
+      style: {
+        color: 'black',
+        weight: 1,
+        fillColor: 'transparent',
+        fillOpacity: 0.3,
+      },
+      onEachFeature: (feature, layer) => {
+        const name = feature.properties.name || 'Barangay';
+
+        // Hover effects
+        layer.on({
+          mouseover: (e) => {
+            const l = e.target;
+            l.setStyle({
+              weight: 2,
+              color: '#FF8800',
+              fillOpacity: 0.5,
+            });
+            setHoveredBarangay(name);
+          },
+          mouseout: (e) => {
+            const l = e.target;
+            l.setStyle({
+              weight: 1,
+              color: 'black',
+              fillOpacity: 0.3,
+            });
+            setHoveredBarangay(null);
+          },
+        });
+
+        // Explicitly disable PM for this layer
+        if (layer.pm) {
+          layer.pm.disable();
+        }
+
+        // Prevent PM from attaching to this layer
+        layer.options.pmIgnore = true;
+        layer.pmIgnore = true;
+
+        // Disable dragging if available
+        if (layer.dragging) {
+          layer.dragging.disable();
+        }
+      },
+    });
+
+    geoLayer.addTo(map);
+    layerRef.current = geoLayer;
+
+    return () => {
+      map.removeLayer(geoLayer);
+    };
+  }, [data, map, setHoveredBarangay]);
+
+  return null;
+}
+
 function FullscreenControl({ onToggle, isFullscreen }) {
   const map = useMap();
   const containerRef = useRef(null);
@@ -63,6 +130,7 @@ function DrawingTools() {
   useEffect(() => {
     if (!map || !map.pm) return;
 
+    // Enable all drawing and editing tools
     map.pm.addControls({
       position: 'topleft',
       drawMarker: true,
@@ -71,14 +139,20 @@ function DrawingTools() {
       drawCircle: true,
       drawPolygon: true,
       drawRectangle: true,
-      editMode: true,
-      dragMode: true,
-      removalMode: true,
+      editMode: true,     // Enable editing
+      dragMode: true,     // Enable dragging
+      removalMode: true,  // Enable removal
     });
 
+    // Handle created shapes
     map.on('pm:create', (e) => {
       const layer = e.layer;
 
+      // Ensure newly created layers are editable (opposite of our GeoJSON)
+      layer.pmIgnore = false;
+      layer.options.pmIgnore = false;
+
+      // Your existing popup code
       if (layer instanceof L.Circle) {
         const radius = layer.getRadius().toFixed(2);
         layer.bindPopup(`Radius: ${radius} meters`).openPopup();
@@ -91,11 +165,21 @@ function DrawingTools() {
         layer.bindPopup(`Area: ${readableArea} km²`).openPopup();
       }
     });
+
+    // Optional: Prevent editing of GeoJSON layers even if someone tries to enable all
+    map.on('pm:globaleditmodetoggled', () => {
+      const allLayers = map.pm.getGeomanLayers();
+      allLayers.forEach(layer => {
+        if (layer.pmIgnore) {
+          layer.pm.disable();
+        }
+      });
+    });
+
   }, [map]);
 
   return null;
 }
-
 
 export default function Map() {
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -129,15 +213,12 @@ export default function Map() {
         scrollWheelZoom={true}
         className="w-full h-full z-10"
       >
-
         <TileLayer
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           url="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
-
         {geoData && (
-          <GeoJSON
-            data={geoData}
+          <LockedGeoJSONLayer data={geoData} setHoveredBarangay={setHoveredBarangay}
             style={{
               color: 'black',
               weight: 1,
@@ -147,21 +228,34 @@ export default function Map() {
             onEachFeature={(feature, layer) => {
               const name = feature.properties.name || 'Barangay';
 
-              // Hover popup and highlight
+              // Lock the layer completely from PM editing
+              if (layer.pm && layer.pm._layer) {
+                layer.pm._layer.pmIgnore = true; // leafet.pm will skip this
+              }
+              if (layer.pm) {
+                layer.pm.disable();
+              }
+
+              // Prevent dragging
+              if (layer.dragging) {
+                layer.dragging.disable();
+              }
+
+              // Hover effect
               layer.on({
-                mouseover: function (e) {
-                  const layer = e.target;
-                  layer.setStyle({
+                mouseover: (e) => {
+                  const l = e.target;
+                  l.setStyle({
                     weight: 2,
                     color: '#FF8800',
                     fillOpacity: 0.5,
                   });
                   setHoveredBarangay(name);
                 },
-                mouseout: function (e) {
-                  const layer = e.target;
-                  layer.setStyle({
-                    weight: 2,
+                mouseout: (e) => {
+                  const l = e.target;
+                  l.setStyle({
+                    weight: 1,
                     color: 'black',
                     fillOpacity: 0.3,
                   });
@@ -172,8 +266,6 @@ export default function Map() {
 
           />
         )}
-
-
         <FullscreenControl
           onToggle={() => setIsFullscreen(!isFullscreen)}
           isFullscreen={isFullscreen}

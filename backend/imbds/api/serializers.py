@@ -50,6 +50,7 @@ class InvestibleSerializer(serializers.ModelSerializer):
             'invst_description': {'required': True},
         }
 
+
 class LocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
@@ -60,8 +61,11 @@ class LocationSerializer(serializers.ModelSerializer):
             'invst': {'required': True},
             'loc_name': {'required': True},
             'loc_address': {'required': True},
-            'loc_type': {'required': True}
+            'mrk_type': {'required': True},
+            'latitude': {'required': True},
+            'longitude': {'required': True},
         }
+
 
 class LocationDetailSerializer(serializers.ModelSerializer):
     bsns = serializers.SerializerMethodField()
@@ -77,14 +81,3 @@ class LocationDetailSerializer(serializers.ModelSerializer):
 
     def get_invst(self, obj):
         return InvestibleSerializer(obj.invst).data
-
-from django.contrib.gis.utils import LayerMapping
-from .models import Location
-
-location_mapping = {
-    'name': 'Name',
-    'geom': 'POINT',
-}
-
-lm = LayerMapping(Location, 'path/to/shapefile.shp', location_mapping)
-lm.save(strict=True)

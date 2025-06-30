@@ -1,11 +1,11 @@
 from django.db import models
-from django.contrib.gis.db import models as geomodels   
+from geopy.geocoders import Nominatim
+
 
 class User(models.Model):
 
     ROLE_CHOICES = (
         ('admin', 'Admin'),
-        ('investor', 'Investor'),
         ('employee', 'Employee'),
     )
 
@@ -64,6 +64,7 @@ class Business(models.Model):
         ('pending', 'Pending'),
         ('archived', 'Archived'),
     )
+
     business_id = models.AutoField(primary_key=True)
     bsns_name = models.CharField(max_length=255)
     bsns_address = models.CharField(max_length=255)
@@ -84,15 +85,23 @@ class Investible(models.Model):
     invst_description = models.CharField(max_length=255)
     status = models.CharField(max_length=10, choices=INVESTIBLE_STATUS_CHOICES, default='available')
 
-class Location(geomodels.Model):
-    location_id = models.AutoField(primary_key=True)
-    bsns = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='businesses')
-    invst = models.ForeignKey(Investible, on_delete=models.CASCADE, related_name='investments')
+class Location(models.Model):
+    mrk_location_id = models.AutoField(primary_key=True)
+    bsns = models.ForeignKey('Business', on_delete=models.CASCADE, related_name='businesses')
+    invst = models.ForeignKey('Investible', on_delete=models.CASCADE, related_name='investments')
     loc_name = models.CharField(max_length=255)
     loc_address = models.CharField(max_length=255)
-    loc_type = models.CharField(max_length=50)
-    geom = geomodels.PointField()  
-    created_at = models.DateTimeField(auto_now_add=True)
+    mrk_type = models.CharField(max_length=50)
+    latitude = models.FloatField(null=True, blank=False)
+    longitude = models.FloatField(null=True, blank=False)
 
     def __str__(self):
-        return self.loc_name
+        return self.loc_name    
+
+    def get_coordinates_from_address(address):
+        geolocator = Nominatim(user_agent="imbds_api")
+        location = geolocator.geocode(address)
+
+        if location:
+            return location.latitude, location.longitude
+        return None, None
