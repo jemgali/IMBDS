@@ -23,9 +23,15 @@ html, body, #root {
   padding: 0;
 } */
 
-body{
+body {
   background-color: #EDF1FA
 }
- @import "tailwindcss";
 
- 
+@import "tailwindcss";
+
+.leaflet-pm-tooltip {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

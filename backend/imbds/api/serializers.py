@@ -2,6 +2,13 @@ from rest_framework import serializers
 from rest_framework import generics
 from .models import User, Business, Investible, Location
 from django.contrib.auth.hashers import make_password
+from .models import Marker
+
+
+class MarkerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Marker
+        fields = ['id','label', 'latitude', 'longitude']
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:

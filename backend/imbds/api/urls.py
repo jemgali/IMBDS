@@ -6,10 +6,12 @@ from .views import UserViewSet, LocationViewSet
 from .views import get_all_businesses, get_business, create_business, update_business, delete_business
 #from .views import get_all_locations, get_location, create_location, update_location, delete_location
 from .views import get_all_investibles, get_investible, create_investible,update_investible, delete_investibles
+from .views import MarkerViewSet
 
 router = DefaultRouter()
 router.register(r'user', UserViewSet, basename='user')
 router.register(r'locations', LocationViewSet, basename='location')
+router.register(r'markers', MarkerViewSet)
 
 urlpatterns = [
     # User URLs

@@ -1,6 +1,13 @@
 from django.db import models
 from geopy.geocoders import Nominatim
 
+class Marker(models.Model):
+    label = models.CharField(max_length=100)
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+
+    def __str__(self):
+        return self.label
 
 class User(models.Model):
 

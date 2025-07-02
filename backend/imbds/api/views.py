@@ -4,7 +4,13 @@ from rest_framework import status
 from .models import User, Location, Business, Investible
 from .serializers import UserSerializer, LocationSerializer, LocationDetailSerializer, BusinessSerializer, InvestibleSerializer
 from rest_framework import viewsets
+from .models import Marker
+from .serializers import MarkerSerializer
 from rest_framework.views import APIView
+
+class MarkerViewSet(viewsets.ModelViewSet):
+    queryset = Marker.objects.all()
+    serializer_class = MarkerSerializer
 
 #CRUD Users
 
