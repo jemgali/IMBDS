@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import UserModal from "./Modal";
+import UserModal from "./Modals/Modal";
 
 export default function UserManage() {
   const [users, setUsers] = useState([]);

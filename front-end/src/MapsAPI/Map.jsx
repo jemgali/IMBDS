@@ -5,7 +5,8 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.pm/dist/leaflet.pm.css';
 import L from 'leaflet';
 import 'leaflet.pm';
-import MarkerFormModal from '../components/MarkerFormModal';
+import MarkerFormModal from '../components/Modals/MarkerFormModal';
+import DeleteConfirmModal from '../components/Modals/DeleteModal';
 
 function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
   const map = useMap();
@@ -148,6 +149,9 @@ export default function Map() {
   const [savedMarkers, setSavedMarkers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const userLayerGroupRef = useRef(L.featureGroup());
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [markerToDelete, setMarkerToDelete] = useState(null);
+
 
   const refreshMarkers = useCallback(async () => {
     setIsLoading(true);
@@ -171,29 +175,74 @@ export default function Map() {
   }, [refreshMarkers]);
 
   useEffect(() => {
+    const map = userLayerGroupRef.current._map;
+    if (!map) return;
+
+    const enableDragging = () => {
+      userLayerGroupRef.current.eachLayer(layer => {
+        if (layer instanceof L.Marker) {
+          layer.dragging.enable();
+        }
+      });
+    };
+
+    const disableDragging = () => {
+      userLayerGroupRef.current.eachLayer(layer => {
+        if (layer instanceof L.Marker) {
+          layer.dragging.disable();
+        }
+      });
+    };
+
+    map.on('pm:dragstart', enableDragging);
+    map.on('pm:dragend', disableDragging);
+
+    return () => {
+      map.off('pm:dragstart', enableDragging);
+      map.off('pm:dragend', disableDragging);
+    };
+  }, []);
+
+  useEffect(() => {
     const interval = setInterval(refreshMarkers, 30000);
     return () => clearInterval(interval);
   }, [refreshMarkers]);
 
-  const handleMarkerSubmit = async ({ label }) => {
+  const handleMarkerSubmit = async ({ label, location, businessType, industry }) => {
     if (!newMarker) return;
+
     try {
-      const res = await axios.post('http://127.0.0.1:8000/api/markers/', {
+      // Create Business first
+      const businessRes = await axios.post('http://127.0.0.1:8000/api/businesses/', {
+        bsns_name: label,
+        bsns_address: location,
+        bsns_type: businessType.toLowerCase(),
+        industry: industry || "General"
+      });
+
+      const businessId = businessRes.data.business_id;
+
+      // Then create Marker
+      const markerRes = await axios.post('http://127.0.0.1:8000/api/markers/', {
         label,
         latitude: newMarker.lat,
         longitude: newMarker.lng,
+        business_id: businessId, // ✅ Correct!
       });
 
-      // Update the layer reference with the new ID
       if (newMarker.layer) {
-        newMarker.layer.options.markerId = res.data.id;
+        newMarker.layer.options.markerId = markerRes.data.id;
       }
 
-      setSavedMarkers(prev => [...prev, res.data]);
+      setSavedMarkers(prev => [...prev, markerRes.data]);
       setModalOpen(false);
       setNewMarker(null);
     } catch (err) {
-      console.error('Error saving marker:', err);
+      if (err.response) {
+        console.error('🛑 Marker API error:', err.response.data);
+      } else {
+        console.error('❌ Unexpected marker error:', err);
+      }
     }
   };
 
@@ -210,16 +259,10 @@ export default function Map() {
         }
       });
     } catch (err) {
-      if (err.response?.status === 404) {
-        // If marker not found, still remove it locally
-        setSavedMarkers(prev => prev.filter(m => m.id !== markerId));
-        userLayerGroupRef.current.eachLayer(layer => {
-          if (layer.options.markerId === markerId) {
-            userLayerGroupRef.current.removeLayer(layer);
-          }
-        });
+      if (err.response) {
+        console.error('🛑 Backend validation error:', err.response.data);
       } else {
-        console.error('Error deleting marker:', err);
+        console.error('❌ Error saving marker with business:', err);
       }
     }
   };
@@ -227,7 +270,7 @@ export default function Map() {
   const handleMarkerDrag = async (e, marker) => {
     const { lat, lng } = e.target.getLatLng();
     try {
-      await axios.put(`http://127.0.0.1:8000/api/markers/${marker.id}/`, {
+      await axios.put(`http://127.0.0.1:8000/api/markers/${marker.marker_id}/`, {
         label: marker.label,
         latitude: lat,
         longitude: lng,
@@ -274,7 +317,7 @@ export default function Map() {
           url="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
 
-        <FeatureGroup ref={userLayerGroupRef} />
+        <FeatureGroup ref={userLayerGroupRef}></FeatureGroup>
         {geoData && <LockedGeoJSONLayer data={geoData} setHoveredBarangay={setHoveredBarangay} />}
         <DrawingTools
           userLayerGroupRef={userLayerGroupRef}
@@ -284,16 +327,17 @@ export default function Map() {
 
         {savedMarkers.map((marker) => (
           <Marker
-            key={marker.id}
+            key={marker.marker_id}
             position={[marker.latitude, marker.longitude]}
-            draggable={true}
+            draggable={false}
             eventHandlers={{
               dragend: (e) => handleMarkerDrag(e, marker),
               click: (e) => {
                 // Add a right-click context menu for deletion
                 e.originalEvent.preventDefault();
                 if (e.originalEvent.button === 2) { // Right-click
-                  handleMarkerDelete(marker.id);
+                  setMarkerToDelete(marker.marker_id);
+                  setDeleteModalOpen(true);
                 }
               },
               contextmenu: (e) => {
@@ -303,10 +347,10 @@ export default function Map() {
             }}
             ref={(ref) => {
               if (ref) {
-                ref.options.markerId = marker.id;
+                ref.options.markerId = marker.marker_id;
                 ref.feature = {
                   properties: {
-                    id: marker.id
+                    id: marker.marker_id
                   }
                 };
               }
@@ -324,12 +368,28 @@ export default function Map() {
         <MarkerFormModal
           isOpen={modalOpen}
           onClose={() => {
+            if (newMarker?.layer) {
+              userLayerGroupRef.current.removeLayer(newMarker.layer);
+            }
             setModalOpen(false);
             setNewMarker(null);
           }}
           onSubmit={handleMarkerSubmit}
         />
       )}
+
+      {deleteModalOpen && (
+        <DeleteConfirmModal
+          isOpen={deleteModalOpen}
+          onCancel={() => setDeleteModalOpen(false)}
+          onConfirm={async () => {
+            await handleMarkerDelete(markerToDelete);
+            setDeleteModalOpen(false);
+            setMarkerToDelete(null);
+          }}
+        />
+      )}
+
     </div>
   );
 }
