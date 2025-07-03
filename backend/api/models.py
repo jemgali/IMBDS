@@ -1,10 +1,11 @@
 from django.db import models
+from geopy.geocoders import Nominatim
+
 
 class User(models.Model):
 
     ROLE_CHOICES = (
         ('admin', 'Admin'),
-        ('investor', 'Investor'),
         ('employee', 'Employee'),
     )
 
@@ -14,18 +15,18 @@ class User(models.Model):
         ('archive', 'Archive'),
     )
 
-
     user_id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=150, unique=True)
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=128)
-    first_name = models.CharField(max_length=30, blank=True)
-    last_name = models.CharField(max_length=30, blank=True)
+    first_name = models.CharField(max_length=30)
+    last_name = models.CharField(max_length=30)
     user_role = models.CharField(max_length=10, choices=ROLE_CHOICES)
     user_status = models.CharField(max_length=8, choices=STATUS_CHOICES, default='online')
 
     def __str__(self):
         return self.username
+    
 
 class Business(models.Model):
 
@@ -35,6 +36,7 @@ class Business(models.Model):
         ('pending', 'Pending'),
         ('archived', 'Archived'),
     )
+
     business_id = models.AutoField(primary_key=True)
     bsns_name = models.CharField(max_length=255)
     bsns_address = models.CharField(max_length=255)
@@ -43,6 +45,7 @@ class Business(models.Model):
 
     def __str__(self):
         return self.bsns_name   
+    
 
 class Investible(models.Model):
     INVESTIBLE_STATUS_CHOICES = (
@@ -54,14 +57,25 @@ class Investible(models.Model):
     invst_location = models.CharField(max_length=255)
     invst_description = models.CharField(max_length=255)
     status = models.CharField(max_length=10, choices=INVESTIBLE_STATUS_CHOICES, default='available')
+    
 
 class Location(models.Model):
-    location_id = models.AutoField(primary_key=True)
-    bsns = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='businesses')
-    invst = models.ForeignKey(Investible, on_delete=models.CASCADE, related_name='investments')
+    mrk_location_id = models.AutoField(primary_key=True)
+    bsns = models.ForeignKey('Business', on_delete=models.CASCADE, related_name='businesses')
+    invst = models.ForeignKey('Investible', on_delete=models.CASCADE, related_name='investments')
     loc_name = models.CharField(max_length=255)
     loc_address = models.CharField(max_length=255)
-    loc_type = models.CharField(max_length=50)
+    mrk_type = models.CharField(max_length=50)
+    latitude = models.FloatField(null=True, blank=False)
+    longitude = models.FloatField(null=True, blank=False)
 
     def __str__(self):
-        return self.loc_name
+        return self.loc_name    
+
+    def get_coordinates_from_address(address):
+        geolocator = Nominatim(user_agent="imbds_api")
+        location = geolocator.geocode(address)
+
+        if location:
+            return location.latitude, location.longitude
+        return None, None

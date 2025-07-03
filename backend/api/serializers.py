@@ -1,17 +1,21 @@
 from rest_framework import serializers
 from .models import User, Business, Investible, Location
+from django.contrib.auth.hashers import make_password
+
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = '__all__'
-        read_only_fields = ['user_id']
-        extra_kwargs = {
-            'password': {'write_only': True}
-        }
+        fields = [
+            'user_id', 'username', 'first_name', 'last_name',
+            'email', 'user_role', 'user_status', 'password',
+        ]
+
     def create(self, validated_data):
-        user = User.objects.create(**validated_data)
-        return user
+       
+        validated_data['password'] = make_password(validated_data['password'])
+        return super().create(validated_data)
+
 
 class BusinessSerializer(serializers.ModelSerializer):
     class Meta:
@@ -24,15 +28,17 @@ class BusinessSerializer(serializers.ModelSerializer):
             'industry': {'required': True},
         }
 
+
 class InvestibleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Investible
-        fields = 'invst_location', 'invst_description', 'status', 'investible_id'
+        fields = '__all__'
         read_only_fields = ['investible_id']
         extra_kwargs = {
             'invst_location': {'required': True},
             'invst_description': {'required': True},
         }
+
 
 class LocationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -44,8 +50,11 @@ class LocationSerializer(serializers.ModelSerializer):
             'invst': {'required': True},
             'loc_name': {'required': True},
             'loc_address': {'required': True},
-            'loc_type': {'required': True}
+            'mrk_type': {'required': True},
+            'latitude': {'required': True},
+            'longitude': {'required': True},
         }
+
 
 class LocationDetailSerializer(serializers.ModelSerializer):
     bsns = serializers.SerializerMethodField()
@@ -61,5 +70,3 @@ class LocationDetailSerializer(serializers.ModelSerializer):
 
     def get_invst(self, obj):
         return InvestibleSerializer(obj.invst).data
-
-        
