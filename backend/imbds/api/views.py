@@ -1,19 +1,46 @@
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
-from .models import User, Location, Business, Investible
-from .serializers import UserSerializer, LocationSerializer, LocationDetailSerializer, BusinessSerializer, InvestibleSerializer
+from .models import User, Business, Investible, Report, Marker
+from .serializers import UserSerializer, BusinessSerializer, InvestibleSerializer,MarkerSerializer,  ReportSerializer
 from rest_framework import viewsets
-from .models import Marker
-from .serializers import MarkerSerializer
 from rest_framework.views import APIView
+from rest_framework import status
+from rest_framework.response import Response
 
+#CRUD Markers
 class MarkerViewSet(viewsets.ModelViewSet):
     queryset = Marker.objects.all()
     serializer_class = MarkerSerializer
 
-#CRUD Users
+    
+def destroy(self, request, *args, **kwargs):
+    instance = self.get_object()
+    business = instance.business
 
+    self.perform_destroy(instance)
+
+    if business and not business.business_markers.exists():
+        business.delete()
+
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+#CRUD Business
+class BusinessViewSet(viewsets.ModelViewSet):
+    queryset = Business.objects.all()
+    serializer_class = BusinessSerializer
+
+#CRUD Reports
+class ReportViewSet(viewsets.ModelViewSet):
+    queryset = Report.objects.all()
+    serializer_class = ReportSerializer
+
+    def create(self, request, *args, **kwargs):
+        print(request.data)  
+        return super().create(request, *args, **kwargs)
+
+
+#CRUD Users
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -71,61 +98,6 @@ class UserViewSet(viewsets.ModelViewSet):
 #     return Response({'message': 'User deleted successfully'}, status=200)
 
 
-#CRUD Locations
-
-class LocationViewSet(viewsets.ModelViewSet):
-    queryset = Location.objects.all()
-    serializer_class = LocationSerializer
-
-# @api_view(['GET']) #Fetch all location
-# def get_all_locations(request):
-#     locations = Location.objects.all()
-#     serializer = LocationDetailSerializer(locations, many=True)
-#     return Response(serializer.data, status=status.HTTP_200_OK)
-
-# @api_view(['GET']) #Search
-# def get_location(request, pk):
-#     try:
-#         location = Location.objects.get(location_id=pk)
-#     except Location.DoesNotExist:
-#         return Response({'error': 'Location not found'}, status=status.HTTP_404_NOT_FOUND)
-
-#     serializer = LocationDetailSerializer(location)
-#     return Response(serializer.data, status=status.HTTP_200_OK)
-
-# @api_view(['POST']) #Add
-# def create_location(request):
-#     serializer = LocationSerializer(data=request.data)
-#     if serializer.is_valid():
-#         serializer.save()
-#         return Response(serializer.data, status=status.HTTP_201_CREATED)
-#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-# @api_view(['PUT']) # Update
-# def update_location(request, pk):
-#     try:
-#         location = Location.objects.get(location_id=pk)
-#     except Location.DoesNotExist:
-#         return Response({'error': 'Location not found'}, status=status.HTTP_404_NOT_FOUND)
-
-#     serializer = LocationSerializer(location, data=request.data)
-#     if serializer.is_valid():
-#         serializer.save()
-#         return Response(serializer.data, status=status.HTTP_200_OK)
-#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-# @api_view(['DELETE']) # Delete location
-# def delete_location(request, pk): 
-#     try:
-#         user = User.objects.get(location_id=pk)
-#     except User.DoesNotExist:
-#         return Response({'error': 'User not found'}, status=400)
-    
-#     user.delete()
-#     return Response({'message': 'User deleted successfully'}, status=200)
-
-
-
 
 #CRUD Investibles
 @api_view(['GET']) # Fetch all investibles
@@ -177,49 +149,49 @@ def delete_investibles(request, pk):
 
 
 #CRUD Businesses
-@api_view(['GET']) # Fetch all businesses
-def get_all_businesses(request):
-    businesses = Business.objects.all()
-    serializer = BusinessSerializer(businesses, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+# @api_view(['GET']) # Fetch all businesses
+# def get_all_businesses(request):
+#     businesses = Business.objects.all()
+#     serializer = BusinessSerializer(businesses, many=True)
+#     return Response(serializer.data, status=status.HTTP_200_OK)
 
-@api_view(['GET']) # Search business
-def get_business(request, pk):
-    try:
-        business = Business.objects.get(business_id=pk)
-    except Business.DoesNotExist:
-        return Response({'error': 'Business not found'}, status=status.HTTP_404_NOT_FOUND)
+# @api_view(['GET']) # Search business
+# def get_business(request, pk):
+#     try:
+#         business = Business.objects.get(business_id=pk)
+#     except Business.DoesNotExist:
+#         return Response({'error': 'Business not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    serializer = BusinessSerializer(business)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+#     serializer = BusinessSerializer(business)
+#     return Response(serializer.data, status=status.HTTP_200_OK)
 
-@api_view(['POST']) # Add business
-def create_business(request):
-    serializer = BusinessSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# @api_view(['POST']) # Add business
+# def create_business(request):
+#     serializer = BusinessSerializer(data=request.data)
+#     if serializer.is_valid():
+#         serializer.save()
+#         return Response(serializer.data, status=status.HTTP_201_CREATED)
+#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['PUT']) # Update business
-def update_business(request, pk):
-    try:
-        business = Business.objects.get(business_id=pk)
-    except Business.DoesNotExist:
-        return Response({'error': 'Business not found'}, status=status.HTTP_404_NOT_FOUND)
+# @api_view(['PUT']) # Update business
+# def update_business(request, pk):
+#     try:
+#         business = Business.objects.get(business_id=pk)
+#     except Business.DoesNotExist:
+#         return Response({'error': 'Business not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    serializer = BusinessSerializer(business, data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#     serializer = BusinessSerializer(business, data=request.data)
+#     if serializer.is_valid():
+#         serializer.save()
+#         return Response(serializer.data, status=status.HTTP_200_OK)
+#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['DELETE']) # Delete business
-def delete_business(request, pk): 
-    try:
-        user = User.objects.get(business_id=pk)
-    except User.DoesNotExist:
-        return Response({'error': 'User not found'}, status=400)
+# @api_view(['DELETE']) # Delete business
+# def delete_business(request, pk): 
+#     try:
+#         user = User.objects.get(business_id=pk)
+#     except User.DoesNotExist:
+#         return Response({'error': 'User not found'}, status=400)
     
-    user.delete()
-    return Response({'message': 'User deleted successfully'}, status=200)
+#     user.delete()
+#     return Response({'message': 'User deleted successfully'}, status=200)
