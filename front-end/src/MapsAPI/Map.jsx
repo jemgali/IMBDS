@@ -7,6 +7,7 @@ import L from 'leaflet';
 import 'leaflet.pm';
 import MarkerFormModal from '../components/Modals/MarkerFormModal';
 import DeleteConfirmModal from '../components/Modals/DeleteModal';
+import MarkerEditModal from '../components/Modals/MarkerEditModal';
 
 function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
   const map = useMap();
@@ -152,6 +153,57 @@ export default function Map() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [markerToDelete, setMarkerToDelete] = useState(null);
   const [pendingLayer, setPendingLayer] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [markerToEdit, setMarkerToEdit] = useState(null);
+
+  const handleEditSubmit = async ({ label, location, industry }) => {
+    if (!markerToEdit || !markerToEdit.business || !markerToEdit.business.business_id) {
+      console.warn("No valid business or business_id found in markerToEdit");
+      return;
+    }
+
+    const businessId = markerToEdit.business.business_id;
+
+    try {
+      // Update the Business
+      await axios.put(`http://127.0.0.1:8000/api/businesses/${businessId}/`, {
+        bsns_name: label,
+        bsns_address: location,
+        industry,
+      });
+
+      // Update the Marker label
+      await axios.put(`http://127.0.0.1:8000/api/markers/${markerToEdit.marker_id}/`, {
+        label,
+        latitude: markerToEdit.latitude,
+        longitude: markerToEdit.longitude,
+        business_id: businessId,
+      });
+
+      // Update the local state
+      setSavedMarkers(prev =>
+        prev.map(m => m.marker_id === markerToEdit.marker_id
+          ? {
+            ...m,
+            label,
+            business: {
+              ...m.business,
+              bsns_name: label,
+              bsns_address: location,
+              industry,
+            }
+          }
+          : m
+        )
+      );
+
+      setEditModalOpen(false);
+      setMarkerToEdit(null);
+    } catch (err) {
+      console.error("❌ Error updating marker or business:", err.response?.data || err);
+    }
+  };
+
 
   const refreshMarkers = useCallback(async () => {
     setIsLoading(true);
@@ -359,8 +411,22 @@ export default function Map() {
             }}
           >
             <Popup>
-              {marker.label}
+              <div className="text-sm">
+                <div className="font-bold">{marker.label}</div>
+                <div>{marker.business?.bsns_address}</div>
+                <div className="mb-2 capitalize">{marker.business?.industry}</div>
+                <button
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
+                  onClick={() => {
+                    setMarkerToEdit(marker);
+                    setEditModalOpen(true);
+                  }}
+                >
+                  Edit
+                </button>
+              </div>
             </Popup>
+
           </Marker>
         ))}
       </MapContainer>
@@ -398,6 +464,23 @@ export default function Map() {
           }}
         />
       )}
+
+      {editModalOpen && markerToEdit && (
+        <MarkerEditModal
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false);
+            setMarkerToEdit(null);
+          }}
+          onSubmit={handleEditSubmit}
+          defaultValues={{
+            label: markerToEdit.business?.bsns_name || '',
+            location: markerToEdit.business?.bsns_address || '',
+            industry: markerToEdit.business?.industry || '',
+          }}
+        />
+      )}
+
     </div>
   );
 }
