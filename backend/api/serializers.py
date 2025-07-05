@@ -1,33 +1,35 @@
 from rest_framework import serializers
-from .models import User, Business, Investible, Location
+from .models import User, Business, Investible, Report, Marker
 from django.contrib.auth.hashers import make_password
 
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = [
-            'user_id', 'username', 'first_name', 'last_name',
-            'email', 'user_role', 'user_status', 'password',
-        ]
-
-    def create(self, validated_data):
-       
-        validated_data['password'] = make_password(validated_data['password'])
-        return super().create(validated_data)
-
-
-class BusinessSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Business
         fields = '__all__'
-        read_only_fields = ['business_id']
         extra_kwargs = {
-            'bsns_name': {'required': True},
-            'bsns_address': {'required': True},
-            'industry': {'required': True},
+            'password': {'write_only': True}
         }
 
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
+
+class BusinessSerializer(serializers.ModelSerializer):
+    industry = serializers.ChoiceField(choices=Business.INDUSTRY_CHOICES)
+
+    class Meta:
+        model = Business
+        fields = [
+            'business_id',
+            'bsns_name',
+            'bsns_address',
+            'industry',
+            'status',
+        ]
 
 class InvestibleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -39,34 +41,34 @@ class InvestibleSerializer(serializers.ModelSerializer):
             'invst_description': {'required': True},
         }
 
-
-class LocationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Location
-        fields = '__all__'
-        read_only_fields = ['location_id']
-        extra_kwargs = {
-            'bsns': {'required': True},
-            'invst': {'required': True},
-            'loc_name': {'required': True},
-            'loc_address': {'required': True},
-            'mrk_type': {'required': True},
-            'latitude': {'required': True},
-            'longitude': {'required': True},
-        }
-
-
-class LocationDetailSerializer(serializers.ModelSerializer):
-    bsns = serializers.SerializerMethodField()
-    invst = serializers.SerializerMethodField()
+class MarkerSerializer(serializers.ModelSerializer):
+    business = BusinessSerializer(read_only=True)
+    business_id = serializers.PrimaryKeyRelatedField(
+        queryset=Business.objects.all(),
+        source='business',
+        write_only=True,
+        required=False   # ✅ Make this optional
+    )
 
     class Meta:
-        model = Location
-        fields = '__all__'
-        read_only_fields = ['location_id']
+        model = Marker
+        fields = ['marker_id', 'label', 'latitude', 'longitude', 'business', 'business_id']
 
-    def get_bsns(self, obj):
-        return BusinessSerializer(obj.bsns).data
+class ReportSerializer(serializers.ModelSerializer):
+    investible = InvestibleSerializer(read_only=True)
+    business = BusinessSerializer(read_only=True)
+    investible_id = serializers.PrimaryKeyRelatedField(
+        queryset=Investible.objects.all(), source='investible', write_only=True
+    )
+    business_id = serializers.PrimaryKeyRelatedField(
+        queryset=Business.objects.all(), source='business', write_only=True
+    )
 
-    def get_invst(self, obj):
-        return InvestibleSerializer(obj.invst).data
+    class Meta:
+        model = Report
+        fields = ['report_id', 'report_description', 'report_date', 'investible', 
+                'business', 'investible_id', 'business_id'
+                ]
+        read_only_fields = ['report_id']
+
+
