@@ -13,17 +13,21 @@ class MarkerViewSet(viewsets.ModelViewSet):
     queryset = Marker.objects.all()
     serializer_class = MarkerSerializer
 
-    
-def destroy(self, request, *args, **kwargs):
-    instance = self.get_object()
-    business = instance.business
+    # ✅ Fix: allow partial updates (for drag updates)
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs, partial=True)
 
-    self.perform_destroy(instance)
+    # ✅ Fix: delete associated business if no markers remain
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        business = instance.business
 
-    if business and not business.business_markers.exists():
-        business.delete()
+        self.perform_destroy(instance)
 
-    return Response(status=status.HTTP_204_NO_CONTENT)
+        if business and not business.business_markers.exists():
+            business.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 #CRUD Business
 class BusinessViewSet(viewsets.ModelViewSet):

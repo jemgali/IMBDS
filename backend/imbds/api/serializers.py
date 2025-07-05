@@ -18,9 +18,17 @@ class UserSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 class BusinessSerializer(serializers.ModelSerializer):
+    industry = serializers.ChoiceField(choices=Business.INDUSTRY_CHOICES)
+
     class Meta:
         model = Business
-        fields = '__all__'
+        fields = [
+            'business_id',
+            'bsns_name',
+            'bsns_address',
+            'industry',
+            'status',
+        ]
 
 class InvestibleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -33,11 +41,12 @@ class InvestibleSerializer(serializers.ModelSerializer):
         }
 
 class MarkerSerializer(serializers.ModelSerializer):
-    business = BusinessSerializer(read_only=True)  # for display
+    business = BusinessSerializer(read_only=True)
     business_id = serializers.PrimaryKeyRelatedField(
-    queryset=Business.objects.all(),
-    source='business',
-    write_only=True
+        queryset=Business.objects.all(),
+        source='business',
+        write_only=True,
+        required=False   # ✅ Make this optional
     )
 
     class Meta:

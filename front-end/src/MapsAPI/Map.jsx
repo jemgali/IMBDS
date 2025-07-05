@@ -82,7 +82,7 @@ function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
   return null;
 }
 
-function DrawingTools({ userLayerGroupRef, onNewMarker, handleMarkerDelete }) {
+function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete }) {
   const map = useMap();
 
   useEffect(() => {
@@ -119,14 +119,14 @@ function DrawingTools({ userLayerGroupRef, onNewMarker, handleMarkerDelete }) {
       onNewMarker(latlng, layer);
     });
 
-    map.on('pm:remove', async (e) => {
+    map.on('pm:remove', (e) => {
       const layer = e.layer;
       if (!(layer instanceof L.Marker)) return;
 
-      if (layer.options.markerId) {
-        await handleMarkerDelete(layer.options.markerId);
+      const markerId = layer.options.markerId;
+      if (markerId) {
+        onRequestDelete(markerId, layer);
       } else {
-        // For markers without IDs (temporary ones)
         userLayerGroupRef.current.removeLayer(layer);
       }
     });
@@ -136,7 +136,7 @@ function DrawingTools({ userLayerGroupRef, onNewMarker, handleMarkerDelete }) {
       map.off('pm:create');
       map.off('pm:remove');
     };
-  }, [map, userLayerGroupRef, onNewMarker]);
+  }, [map, userLayerGroupRef, onNewMarker, onRequestDelete]);
 
   return null;
 }
@@ -151,7 +151,7 @@ export default function Map() {
   const userLayerGroupRef = useRef(L.featureGroup());
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [markerToDelete, setMarkerToDelete] = useState(null);
-
+  const [pendingLayer, setPendingLayer] = useState(null);
 
   const refreshMarkers = useCallback(async () => {
     setIsLoading(true);
@@ -181,7 +181,7 @@ export default function Map() {
     const enableDragging = () => {
       userLayerGroupRef.current.eachLayer(layer => {
         if (layer instanceof L.Marker) {
-          layer.dragging.enable();
+          layer.dragging?.enable();
         }
       });
     };
@@ -189,7 +189,7 @@ export default function Map() {
     const disableDragging = () => {
       userLayerGroupRef.current.eachLayer(layer => {
         if (layer instanceof L.Marker) {
-          layer.dragging.disable();
+          layer.dragging?.disable();
         }
       });
     };
@@ -208,26 +208,23 @@ export default function Map() {
     return () => clearInterval(interval);
   }, [refreshMarkers]);
 
-  const handleMarkerSubmit = async ({ label, location, businessType, industry }) => {
+  const handleMarkerSubmit = async ({ label, location, industry }) => {
     if (!newMarker) return;
 
     try {
-      // Create Business first
       const businessRes = await axios.post('http://127.0.0.1:8000/api/businesses/', {
         bsns_name: label,
         bsns_address: location,
-        bsns_type: businessType.toLowerCase(),
-        industry: industry || "General"
+        industry
       });
 
       const businessId = businessRes.data.business_id;
 
-      // Then create Marker
       const markerRes = await axios.post('http://127.0.0.1:8000/api/markers/', {
         label,
         latitude: newMarker.lat,
         longitude: newMarker.lng,
-        business_id: businessId, // ✅ Correct!
+        business_id: businessId,
       });
 
       if (newMarker.layer) {
@@ -249,10 +246,8 @@ export default function Map() {
   const handleMarkerDelete = async (markerId) => {
     try {
       await axios.delete(`http://127.0.0.1:8000/api/markers/${markerId}/`);
-      // Optimistically update both state and FeatureGroup
       setSavedMarkers(prev => prev.filter(m => m.id !== markerId));
 
-      // Find and remove the marker from FeatureGroup
       userLayerGroupRef.current.eachLayer(layer => {
         if (layer.options.markerId === markerId) {
           userLayerGroupRef.current.removeLayer(layer);
@@ -269,26 +264,45 @@ export default function Map() {
 
   const handleMarkerDrag = async (e, marker) => {
     const { lat, lng } = e.target.getLatLng();
+
+    let businessId = marker.business_id;
+
+    if (Array.isArray(businessId)) {
+      businessId = businessId[0];
+    }
+
+    if (typeof businessId === 'object' && businessId !== null) {
+      businessId = businessId.business_id;
+    }
+
     try {
       await axios.put(`http://127.0.0.1:8000/api/markers/${marker.marker_id}/`, {
         label: marker.label,
         latitude: lat,
         longitude: lng,
       });
+
       setSavedMarkers(prev =>
-        prev.map(m => (m.id === marker.id ? { ...m, latitude: lat, longitude: lng } : m))
+        prev.map(m => (m.marker_id === marker.marker_id ? { ...m, latitude: lat, longitude: lng } : m))
       );
     } catch (err) {
-      console.error('Error updating marker:', err);
+      console.error('Error updating marker:', err.response?.data || err);
     }
   };
 
   const handleNewMarker = (latlng, layer) => {
     setNewMarker({
       ...latlng,
-      layer // Store the layer reference
+      layer
     });
     setModalOpen(true);
+  };
+
+  const confirmMarkerDeletion = (markerId, layer) => {
+    userLayerGroupRef.current.addLayer(layer);
+    setMarkerToDelete(markerId);
+    setPendingLayer(layer);
+    setDeleteModalOpen(true);
   };
 
   return (
@@ -322,28 +336,16 @@ export default function Map() {
         <DrawingTools
           userLayerGroupRef={userLayerGroupRef}
           onNewMarker={handleNewMarker}
-          handleMarkerDelete={handleMarkerDelete}
+          onRequestDelete={confirmMarkerDeletion}
         />
 
         {savedMarkers.map((marker) => (
           <Marker
             key={marker.marker_id}
             position={[marker.latitude, marker.longitude]}
-            draggable={false}
+            draggable={true}
             eventHandlers={{
-              dragend: (e) => handleMarkerDrag(e, marker),
-              click: (e) => {
-                // Add a right-click context menu for deletion
-                e.originalEvent.preventDefault();
-                if (e.originalEvent.button === 2) { // Right-click
-                  setMarkerToDelete(marker.marker_id);
-                  setDeleteModalOpen(true);
-                }
-              },
-              contextmenu: (e) => {
-                // Prevent default context menu
-                e.originalEvent.preventDefault();
-              }
+              dragend: (e) => handleMarkerDrag(e, marker)
             }}
             ref={(ref) => {
               if (ref) {
@@ -361,7 +363,6 @@ export default function Map() {
             </Popup>
           </Marker>
         ))}
-
       </MapContainer>
 
       {modalOpen && (
@@ -381,15 +382,22 @@ export default function Map() {
       {deleteModalOpen && (
         <DeleteConfirmModal
           isOpen={deleteModalOpen}
-          onCancel={() => setDeleteModalOpen(false)}
+          onCancel={() => {
+            setDeleteModalOpen(false);
+            setMarkerToDelete(null);
+            if (pendingLayer) {
+              userLayerGroupRef.current.removeLayer(pendingLayer);
+              setPendingLayer(null);
+            }
+          }}
           onConfirm={async () => {
             await handleMarkerDelete(markerToDelete);
             setDeleteModalOpen(false);
             setMarkerToDelete(null);
+            setPendingLayer(null);
           }}
         />
       )}
-
     </div>
   );
 }

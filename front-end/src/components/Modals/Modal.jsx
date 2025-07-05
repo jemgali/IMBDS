@@ -23,7 +23,7 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData, mode })
     };
 
     return (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
+        <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-[2px]">
             <div className="bg-white rounded-lg w-full max-w-xl p-6">
                 <h2 className="text-xl font-semibold mb-6 text-center">{mode === "edit" ? "Edit User" : "Add User"}</h2>
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-2">

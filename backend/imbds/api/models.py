@@ -30,15 +30,7 @@ class User(models.Model):
 
 
 class Business(models.Model):
-
-    business_status = (
-        ('active', 'Active'),
-        ('inactive', 'Inactive'),
-        ('pending', 'Pending'),
-        ('archived', 'Archived'),
-    )
-
-    Business_type_choices = (
+    INDUSTRY_CHOICES = (
         ('mall', 'Mall'),
         ('restaurant', 'Restaurant'),
         ('school', 'School'),
@@ -46,17 +38,33 @@ class Business(models.Model):
         ('office', 'Office'),
         ('market', 'Market'),
         ('other', 'Other'),
-
     )
+
     business_id = models.AutoField(primary_key=True)
     bsns_name = models.CharField(max_length=255)
     bsns_address = models.CharField(max_length=255)
-    bsns_type = models.CharField(max_length=100, choices=Business_type_choices, default='other')
-    industry = models.CharField(max_length=100)
-    status = models.CharField(max_length=10, choices=business_status, default='active')
+
+    # ✅ Now industry uses dropdown
+    industry = models.CharField(
+        max_length=100,
+        choices=INDUSTRY_CHOICES,
+        default='other'
+    )
+
+    status = models.CharField(
+        max_length=10,
+        choices=(
+            ('active', 'Active'),
+            ('inactive', 'Inactive'),
+            ('pending', 'Pending'),
+            ('archived', 'Archived'),
+        ),
+        default='active'
+    )
 
     def __str__(self):
         return self.bsns_name
+
 
 # class Meta:
 #       db_table = 'tbl_businesses'
