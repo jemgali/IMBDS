@@ -16,7 +16,7 @@ const Index = () => {
       <Route path="/page/interactive-map/" element={<MapPage />} />
       <Route path="/page/businesses/" element={<Businesses />} />
       <Route path="/page/investibles/" element={<Investibles />} />
-      <Route path="/page/contact/" element={<Contact />} />
+      {/* <Route path="/page/contact/" element={<Contact />} /> */}
     </Routes>
   );
 };

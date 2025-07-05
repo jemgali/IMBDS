@@ -5,10 +5,11 @@ import logo from '../assets/logo.png'
 const Header = () => {
   
   const navItems = [
-    {  label: "Map", path: "/page/interactive-map/" },
+    {  label: "Home", path: "/page/homepage/" },
+    // {  label: "Map", path: "/page/interactive-map/" },
     {  label: "Businesses", path: "/page/businesses/" },
     {  label: "Investibles", path: "/page/investibles/" },
-    {  label: "Contact Us", path: "/page/contact/" },
+    // {  label: "Contact Us", path: "/page/contact/" },
   ];
 
   return (
@@ -26,11 +27,39 @@ const Header = () => {
           <ul className="space-y-2">
             {navItems.map((item, index) => (
               <button key={index}>
-                <NavLink to={item.path} className= "gap-3 px-4 py-2 rounded-sm transition-all duration-300 text-white hover:bg-indigo-200 hover:text-indigo-800">
+                <NavLink to={item.path} className="gap-3 px-4 py-2 rounded-sm transition-all duration-300 text-white hover:bg-indigo-200 hover:text-indigo-800">
                   <span className="ml-1 font-semibold text-sm">{item.label}</span>
                 </NavLink>
               </button>
             ))}
+            {/* Map scroll button */}
+            <button
+              onClick={() => {
+                if (window.location.pathname !== '/page/homepage/') {
+                  window.location.href = '/page/homepage/';
+                  setTimeout(() => window.scrollToMap && window.scrollToMap(), 500);
+                } else {
+                  window.scrollToMap && window.scrollToMap();
+                }
+              }}
+              className="gap-3 px-4 py-2 rounded-sm transition-all duration-300 text-white hover:bg-indigo-200 hover:text-indigo-800"
+            >
+              <span className="ml-1 font-semibold text-sm">Map</span>
+            </button>
+            {/* Contact scroll button (already present) */}
+            <button
+              onClick={() => {
+                if (window.location.pathname !== '/page/homepage/') {
+                  window.location.href = '/page/homepage/';
+                  setTimeout(() => window.scrollToContact && window.scrollToContact(), 500);
+                } else {
+                  window.scrollToContact && window.scrollToContact();
+                }
+              }}
+              className="gap-3 px-4 py-2 rounded-sm transition-all duration-300 text-white hover:bg-indigo-200 hover:text-indigo-800"
+            >
+              <span className="ml-1 font-semibold text-sm">Contact Us</span>
+            </button>
           </ul>
         </nav>
       </div>
