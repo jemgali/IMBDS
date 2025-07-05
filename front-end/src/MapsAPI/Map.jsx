@@ -83,7 +83,7 @@ function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
   return null;
 }
 
-function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete }) {
+function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragModeChange }) {
   const map = useMap();
 
   useEffect(() => {
@@ -132,12 +132,19 @@ function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete }) {
       }
     });
 
+    map.on('pm:globaldragmodetoggled', (e) => {
+      if (typeof onDragModeChange === 'function') {
+        onDragModeChange(e.enabled);
+      }
+    });
+
     return () => {
       map.pm.removeControls();
       map.off('pm:create');
       map.off('pm:remove');
+      map.off('pm:globaldragmodetoggled');
     };
-  }, [map, userLayerGroupRef, onNewMarker, onRequestDelete]);
+  }, [map, userLayerGroupRef, onNewMarker, onRequestDelete, onDragModeChange]);
 
   return null;
 }
@@ -155,6 +162,7 @@ export default function Map() {
   const [pendingLayer, setPendingLayer] = useState(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [markerToEdit, setMarkerToEdit] = useState(null);
+  const [dragModeEnabled, setDragModeEnabled] = useState(false);
 
   const handleEditSubmit = async ({ label, location, industry }) => {
     if (!markerToEdit || !markerToEdit.business || !markerToEdit.business.business_id) {
@@ -389,13 +397,15 @@ export default function Map() {
           userLayerGroupRef={userLayerGroupRef}
           onNewMarker={handleNewMarker}
           onRequestDelete={confirmMarkerDeletion}
+          onDragModeChange={setDragModeEnabled}
         />
+
 
         {savedMarkers.map((marker) => (
           <Marker
             key={marker.marker_id}
             position={[marker.latitude, marker.longitude]}
-            draggable={true}
+            draggable={dragModeEnabled}
             eventHandlers={{
               dragend: (e) => handleMarkerDrag(e, marker)
             }}
