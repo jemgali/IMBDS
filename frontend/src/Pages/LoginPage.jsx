@@ -22,13 +22,10 @@ const LoginPage = () => {
     if (user) {
         if (user.user_role === "Admin") {
             console.log("Redirecting to /admin/dashboard");
-            navigate("/admin/dashboard");
+            navigate("/admin/Dashboard");
         } else if (user.user_role === "Employee") {
             console.log("Redirecting to /employee/dashboard");
-            navigate("/employee/dashboard");      
-        } else {
-            console.log("Redirecting to /portal");
-            navigate("/portal");
+            navigate("/employee/Dashboard");      
         }
     } else {
         console.error("Login failed or user object is null");

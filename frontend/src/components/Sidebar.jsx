@@ -31,12 +31,12 @@ const Sidebar = () => {
         </button>
       </div>
       <ul className="space-y-2 mt-4">
-        <SidebarItem to="/Dashboard" icon={<HomeIcon className="h-6 w-6" />} label="Dashboard" collapsed={collapsed} />
-        <SidebarItem to="/Map" icon={<MapIcon className="h-6 w-6" />} label="Interactive Map" collapsed={collapsed} />
-        <SidebarItem to="/Business" icon={<Cog6ToothIcon className="h-6 w-6" />} label="Business Management" collapsed={collapsed} />
-        <SidebarItem to="/Investible" icon={<Cog6ToothIcon className="h-6 w-6" />} label="Investible Management" collapsed={collapsed} />
-        <SidebarItem to="/User" icon={<UserIcon className="h-6 w-6" />} label="User Management" collapsed={collapsed} />
-        <SidebarItem to="/Reports" icon={<Cog6ToothIcon className="h-6 w-6" />} label="Generate Reports" collapsed={collapsed} />
+        <SidebarItem to="/admin/Dashboard" icon={<HomeIcon className="h-6 w-6" />} label="Dashboard" collapsed={collapsed} />
+        <SidebarItem to="/admin/Map" icon={<MapIcon className="h-6 w-6" />} label="Interactive Map" collapsed={collapsed} />
+        <SidebarItem to="/admin/Business" icon={<Cog6ToothIcon className="h-6 w-6" />} label="Business Management" collapsed={collapsed} />
+        <SidebarItem to="/admin/Investible" icon={<Cog6ToothIcon className="h-6 w-6" />} label="Investible Management" collapsed={collapsed} />
+        <SidebarItem to="/admin/User" icon={<UserIcon className="h-6 w-6" />} label="User Management" collapsed={collapsed} />
+        <SidebarItem to="/admin/Reports" icon={<Cog6ToothIcon className="h-6 w-6" />} label="Generate Reports" collapsed={collapsed} />
       </ul>
     </div>
   );
