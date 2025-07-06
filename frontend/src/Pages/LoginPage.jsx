@@ -1,3 +1,4 @@
+// MultipleFiles/LoginPage.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from '../context/AuthContext'
@@ -7,28 +8,26 @@ import Footer from "../components/Footer";
 const LoginPage = () => {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const { login, error } = useAuth()
+  const { login, error } = useAuth() // 'error' from AuthContext will now be set for login failures
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log("Submitting login form with:", { username, password });
 
-    // Call the login function and get the user object
-    const user = await login({ username, password });
-    console.log("Login success, user object:", user);
+    const loggedInUser = await login({ username, password }); // Get the user object from the login function
 
-    // Check the user's role and navigate accordingly
-    if (user) {
-        if (user.user_role === "Admin") {
-            console.log("Redirecting to /admin/dashboard");
+    if (loggedInUser) { // Check if login was successful (user object is not null)
+        if (loggedInUser.user_role === "Admin") {
+            console.log("Redirecting to /admin/Dashboard");
             navigate("/admin/Dashboard");
-        } else if (user.user_role === "Employee") {
-            console.log("Redirecting to /employee/dashboard");
+        } else if (loggedInUser.user_role === "employee") { // Ensure case matches backend ('employee' vs 'Employee')
+            console.log("Redirecting to /employee/Dashboard");
             navigate("/employee/Dashboard");      
         }
     } else {
-        console.error("Login failed or user object is null");
+        console.error("Login failed or user object is null (AuthContext error should be set)");
+        // The error state in AuthContext will handle displaying the message
     }
   }
   return (
@@ -37,6 +36,12 @@ const LoginPage = () => {
       <main className="flex flex-1 items-center justify-center px-4">
         <div className="h-full w-full bg-[#EDF1FA] flex flex-col items-center justify-center">
           <form onSubmit={handleSubmit} className="space-y-6 w-full max-w-sm">
+            {error && ( // Display error message from AuthContext
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                    <strong className="font-bold">Login Failed: </strong>
+                    <span className="block sm:inline">{error}</span>
+                </div>
+            )}
             <div className="rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Username:

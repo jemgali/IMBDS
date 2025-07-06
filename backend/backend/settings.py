@@ -53,7 +53,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'corsheaders.middleware.CorsMiddleware'
 ]
 
 ROOT_URLCONF = 'backend.urls'
@@ -70,17 +69,17 @@ AUTH_USER_MODEL = 'api.User'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # 'api.authentication.CookieJWTAuthentication', # Changed to your custom authentication class
+        'rest_framework_simplejwt.authentication.JWTAuthentication', # Keep this as a fallback or for other token types
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
-
 from datetime import timedelta
-
 SIMPLE_JWT = {
-    "AUTH_COOKIE": "access_token",  # name of cookie
+    "AUTH_COOKIE": "access_token",  # name of cookie for access token
+    "AUTH_COOKIE_REFRESH": "refresh_token", # name of cookie for refresh token
     "AUTH_COOKIE_HTTP_ONLY": True,
     "AUTH_COOKIE_SECURE": False,  # True in production with HTTPS
     "AUTH_COOKIE_SAMESITE": "Lax",

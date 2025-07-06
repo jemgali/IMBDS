@@ -1,6 +1,6 @@
+// MultipleFiles/Map.jsx
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { MapContainer, TileLayer, useMap, FeatureGroup, Marker, Popup } from 'react-leaflet';
-import axios from 'axios';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.pm/dist/leaflet.pm.css';
 import L from 'leaflet';
@@ -8,6 +8,7 @@ import 'leaflet.pm';
 import MarkerFormModal from '../components/Modals/MarkerFormModal';
 import DeleteConfirmModal from '../components/Modals/DeleteModal';
 import MarkerEditModal from '../components/Modals/MarkerEditModal';
+import { apiClient } from '../api/api_urls'; // Import apiClient
 
 function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
   const map = useMap();
@@ -174,14 +175,14 @@ export default function Map() {
 
     try {
       // Update the Business
-      await axios.put(`http://127.0.0.1:8000/api/businesses/${businessId}/`, {
+      await apiClient.put(`businesses/${businessId}/`, { // Use apiClient
         bsns_name: label,
         bsns_address: location,
         industry,
       });
 
       // Update the Marker label
-      await axios.put(`http://127.0.0.1:8000/api/markers/${markerToEdit.marker_id}/`, {
+      await apiClient.put(`markers/${markerToEdit.marker_id}/`, { // Use apiClient
         label,
         latitude: markerToEdit.latitude,
         longitude: markerToEdit.longitude,
@@ -216,7 +217,7 @@ export default function Map() {
   const refreshMarkers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get('http://127.0.0.1:8000/api/markers/');
+      const response = await apiClient.get('markers/'); // Use apiClient
       setSavedMarkers(response.data);
     } catch (error) {
       console.error('Error refreshing markers:', error);
@@ -272,7 +273,7 @@ export default function Map() {
     if (!newMarker) return;
 
     try {
-      const businessRes = await axios.post('http://127.0.0.1:8000/api/businesses/', {
+      const businessRes = await apiClient.post('businesses/', { // Use apiClient
         bsns_name: label,
         bsns_address: location,
         industry
@@ -280,7 +281,7 @@ export default function Map() {
 
       const businessId = businessRes.data.business_id;
 
-      const markerRes = await axios.post('http://127.0.0.1:8000/api/markers/', {
+      const markerRes = await apiClient.post('markers/', { // Use apiClient
         label,
         latitude: newMarker.lat,
         longitude: newMarker.lng,
@@ -288,7 +289,7 @@ export default function Map() {
       });
 
       if (newMarker.layer) {
-        newMarker.layer.options.markerId = markerRes.data.id;
+        newMarker.layer.options.markerId = markerRes.data.marker_id; // Use marker_id from backend
       }
 
       setSavedMarkers(prev => [...prev, markerRes.data]);
@@ -305,8 +306,8 @@ export default function Map() {
 
   const handleMarkerDelete = async (markerId) => {
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/markers/${markerId}/`);
-      setSavedMarkers(prev => prev.filter(m => m.id !== markerId));
+      await apiClient.delete(`markers/${markerId}/`); // Use apiClient
+      setSavedMarkers(prev => prev.filter(m => m.marker_id !== markerId)); // Filter by marker_id
 
       userLayerGroupRef.current.eachLayer(layer => {
         if (layer.options.markerId === markerId) {
@@ -336,7 +337,7 @@ export default function Map() {
     }
 
     try {
-      await axios.put(`http://127.0.0.1:8000/api/markers/${marker.marker_id}/`, {
+      await apiClient.put(`markers/${marker.marker_id}/`, { // Use apiClient
         label: marker.label,
         latitude: lat,
         longitude: lng,

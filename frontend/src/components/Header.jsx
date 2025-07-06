@@ -1,3 +1,4 @@
+// MultipleFiles/Header.jsx
 import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "../context/AuthContext";
@@ -6,19 +7,19 @@ import { useNavigate } from "react-router";
 
 const Header = ({ showProfile = true }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuth(); // Use logout from AuthContext
   const navigate = useNavigate();
 
   const toggleDropdown = () => setIsDropdownOpen((prev) => !prev);
 
   const handleLogout = () => {
-    logout();
+    logout(); // This will now call the backend logout endpoint
     setIsDropdownOpen(false);
-    navigate("/login");
+    // The logout function in AuthContext already handles navigation to /login/
   };
 
   // Helper for dropdown position
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+  const [dropdownPos, setDropdownPos] = React.useState({ top: 0, left: 0 }); // Use React.useState
   const profileRef = React.useRef();
 
   const handleProfileClick = (e) => {

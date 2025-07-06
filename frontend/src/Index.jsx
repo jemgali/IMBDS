@@ -20,6 +20,14 @@ function App() {
         <Route path='Investible' element={<InvestiblePage/>}/>  
         <Route path='User' element={<UserPage/>}/>              
         <Route path='Reports' element={<ReportPage/>}/>         
+      </Route>
+
+      {/* EMPLOYEE ROUTES */}
+      <Route path="/employee/*">
+        <Route path='Dashboard' element={<DashPage />}/>        
+        <Route path='Map' element={<MapPage/>}/>                
+        <Route path='Business' element={<BusinessPage/>}/>      
+        <Route path='Investible' element={<InvestiblePage/>}/>  
       </Route>  
     </Routes>
   );

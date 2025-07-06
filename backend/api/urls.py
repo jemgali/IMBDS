@@ -1,3 +1,4 @@
+# MultipleFiles/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import UserViewSet, MarkerViewSet, ReportViewSet, BusinessViewSet
@@ -15,13 +16,14 @@ urlpatterns = [
     path('users/', get_users, name='get_users'),
     path('users/create/', create_user, name='create_user'),
     path('users/update/<int:pk>/', update_user, name='update_user'),
-    # TOKEN
-    path('login/', login_view),
-    path('logout/', logout_view),
-    path('refresh/', refresh_token_view),
-    path('protected/', protected_view),
     
-    # User URLs
+    # TOKEN
+    path('login/', login_view, name='login'), # Added name
+    path('logout/', logout_view, name='logout'), # Added name
+    path('refresh/', refresh_token_view, name='token_refresh'), # Added name
+    path('protected/', protected_view, name='protected_view'), # Added name
+    
+    # User URLs (from router)
     path('', include(router.urls)),
     
     # Investible URLs

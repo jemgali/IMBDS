@@ -1,6 +1,6 @@
+// MultipleFiles/AuthContext.jsx
 import { useState, createContext, useContext, useEffect } from "react";
-import axios from "axios";
-import { API_URLS } from "../api/api_urls";
+import { apiClient, API_URLS } from "../api/api_urls"; // Import apiClient and API_URLS
 
 const AuthContext = createContext();
 
@@ -9,64 +9,22 @@ export default function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        const fetchUser = async () => {
-            try {
-                const token = getCookie("access_token"); // Retrieve token from cookies
-                if (!token) {
-                    console.error("No access token found");
-                    setUser(null);
-                    setLoading(false);
-                    return;
-                }
-                
-                const response = await axios.get(`${ API_URLS }protected/`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-                console.log("Fetched user on app load:", response.data.user); // Debugging
-                setUser(response.data.user);
-            } catch (err) {
-                console.error("Error fetching user:", err);
-                setUser(null);
-            } finally {
-                setLoading(false); // Ensure loading is set to false
-            }
-        };
-    
-        fetchUser();
-    }, []);
-
-    const getCookie = (name) => {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(";").shift();
-        return null;
-    };
+    // No useEffect for initial token fetch here, as we're not using cookies/localStorage for persistence.
+    // The user state will only be set after a successful login.
 
     const login = async (credentials) => {
         setLoading(true);
         setError(null);
       
         try {
-          console.log("Sending login request with:", credentials); // Debugging
-          const response = await axios.post(`${API_URLS}login/`, credentials, {
-            withCredentials: true,
-          });
-          console.log("Login response:", response.data); // Debugging
-      
+          const response = await apiClient.post('login/', credentials); // Use apiClient
           const { access } = response.data;
       
-          document.cookie = `access_token=${access}; path=/;`;
+          // Set the Authorization header for future requests with this apiClient instance
+          apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`;
       
-          const userResponse = await axios.get(`${API_URLS}protected/`, {
-            headers: {
-              Authorization: `Bearer ${access}`,
-            },
-          });
+          const userResponse = await apiClient.get('protected/'); // Use apiClient for protected route
       
-          console.log("Fetched user after login:", userResponse.data.user); // Debugging
           setUser(userResponse.data.user);
           setLoading(false);
       
@@ -75,18 +33,21 @@ export default function AuthProvider({ children }) {
           console.error("Login error:", error.response || error.message);
           setError("Invalid credentials");
           setLoading(false);
+          // Clear the token from apiClient headers on failed login
+          delete apiClient.defaults.headers.common['Authorization'];
           return null;
         }
       };
     
     const logout = () => {
         setUser(null);
-        document.cookie = "access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-        window.location.href = "/login/";
+        // Clear the token from apiClient headers on logout
+        delete apiClient.defaults.headers.common['Authorization'];
+        window.location.href = "/login/"; // Redirect to login page
     };
 
     return (
-        <AuthContext.Provider value={{ user, error, loading, login, logout }}>
+        <AuthContext.Provider value={{ user, error, loading, login, logout, apiClient }}>
             {children}
         </AuthContext.Provider>
     );
