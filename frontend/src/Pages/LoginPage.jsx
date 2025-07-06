@@ -33,7 +33,7 @@ const LoginPage = () => {
   }
   return (
     <div className="flex flex-col min-h-screen bg-[#EDF1FA]">
-      <Header />
+      <Header showProfile={false} />
       <main className="flex flex-1 items-center justify-center px-4">
         <div className="h-full w-full bg-[#EDF1FA] flex flex-col items-center justify-center">
           <form onSubmit={handleSubmit} className="space-y-6 w-full max-w-sm">
@@ -43,6 +43,7 @@ const LoginPage = () => {
               </label>
               <input
                 type="text"
+                autoComplete="username"
                 className="w-full px-4 font-bold text-black text-lg focus:outline-none"
                 name="username"
                 value={username}
@@ -55,6 +56,7 @@ const LoginPage = () => {
               </label>
               <input
                 type="password"
+                autoComplete="current-password"
                 className="w-full px-4 text-black text-lg focus:outline-none"
                 name="password"
                 value={password}

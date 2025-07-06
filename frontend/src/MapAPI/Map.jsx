@@ -1,76 +1,81 @@
-// Map.jsx
-import { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, GeoJSON, } from 'react-leaflet';
-import {
-  ArrowsPointingOutIcon,
-  ArrowsPointingInIcon,
-} from '@heroicons/react/24/outline';
-import ReactDOM from 'react-dom/client';
-import 'leaflet';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { MapContainer, TileLayer, useMap, FeatureGroup, Marker, Popup } from 'react-leaflet';
+import axios from 'axios';
 import 'leaflet/dist/leaflet.css';
-import 'leaflet.pm';
 import 'leaflet.pm/dist/leaflet.pm.css';
+import L from 'leaflet';
+import 'leaflet.pm';
+import MarkerFormModal from '../components/Modals/MarkerFormModal';
+import DeleteConfirmModal from '../components/Modals/DeleteModal';
+import MarkerEditModal from '../components/Modals/MarkerEditModal';
 
 function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
   const map = useMap();
-  const layerRef = useRef(null);
+  const hoverState = useRef({ currentLayer: null, timeout: null });
 
   useEffect(() => {
     if (!data || !map) return;
 
+    const clearHighlight = () => {
+      if (hoverState.current.currentLayer) {
+        hoverState.current.currentLayer.setStyle({
+          weight: 1,
+          color: 'black',
+          fillColor: 'transparent',
+          fillOpacity: 0,
+        });
+        hoverState.current.currentLayer = null;
+        setHoveredBarangay(null);
+      }
+    };
+
     const geoLayer = L.geoJSON(data, {
-      pmIgnore: true, // This is the key property to prevent PM editing
+      pmIgnore: true,
       style: {
         color: 'black',
         weight: 1,
         fillColor: 'transparent',
-        fillOpacity: 0.3,
+        fillOpacity: 0,
       },
       onEachFeature: (feature, layer) => {
         const name = feature.properties.name || 'Barangay';
+        layer.pmIgnore = true;
+        layer.options.pmIgnore = true;
+        if (layer.pm) layer.pm.disable();
+        if (layer.dragging) layer.dragging.disable();
 
-        // Hover effects
         layer.on({
           mouseover: (e) => {
+            clearTimeout(hoverState.current.timeout);
             const l = e.target;
-            l.setStyle({
-              weight: 2,
-              color: '#FF8800',
-              fillOpacity: 0.5,
-            });
-            setHoveredBarangay(name);
+            if (hoverState.current.currentLayer && hoverState.current.currentLayer !== l) {
+              clearHighlight();
+            }
+            hoverState.current.timeout = setTimeout(() => {
+              l.setStyle({
+                weight: 2,
+                color: '#000000',
+                fillColor: '#CCCCCC',
+                fillOpacity: 0.5,
+              });
+              l.bringToFront();
+              hoverState.current.currentLayer = l;
+              setHoveredBarangay(name);
+            }, 30);
           },
-          mouseout: (e) => {
-            const l = e.target;
-            l.setStyle({
-              weight: 1,
-              color: 'black',
-              fillOpacity: 0.3,
-            });
-            setHoveredBarangay(null);
+          mouseout: () => {
+            clearTimeout(hoverState.current.timeout);
+            hoverState.current.timeout = setTimeout(() => {
+              clearHighlight();
+            }, 50);
           },
         });
-
-        // Explicitly disable PM for this layer
-        if (layer.pm) {
-          layer.pm.disable();
-        }
-
-        // Prevent PM from attaching to this layer
-        layer.options.pmIgnore = true;
-        layer.pmIgnore = true;
-
-        // Disable dragging if available
-        if (layer.dragging) {
-          layer.dragging.disable();
-        }
       },
     });
 
     geoLayer.addTo(map);
-    layerRef.current = geoLayer;
-
     return () => {
+      clearTimeout(hoverState.current.timeout);
       map.removeLayer(geoLayer);
     };
   }, [data, map, setHoveredBarangay]);
@@ -78,138 +83,306 @@ function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
   return null;
 }
 
-function FullscreenControl({ onToggle, isFullscreen }) {
-  const map = useMap();
-  const containerRef = useRef(null);
-
-  useEffect(() => {
-    const controlDiv = L.DomUtil.create('div', 'leaflet-bar');
-    controlDiv.style.background = 'white';
-    controlDiv.style.border = '1px solid #ccc';
-    controlDiv.style.padding = '6px';
-    controlDiv.style.cursor = 'pointer';
-    controlDiv.style.borderRadius = '4px';
-    controlDiv.style.display = 'flex';
-    controlDiv.style.alignItems = 'center';
-    controlDiv.style.justifyContent = 'center';
-
-    // Make React root for icon
-    const iconContainer = document.createElement('div');
-    controlDiv.appendChild(iconContainer);
-    const root = ReactDOM.createRoot(iconContainer);
-
-    root.render(
-      isFullscreen ? (
-        <ArrowsPointingInIcon className="h-5 w-5 text-black" />
-      ) : (
-        <ArrowsPointingOutIcon className="h-5 w-5 text-black" />
-      )
-    );
-
-    controlDiv.onclick = onToggle;
-
-    const control = L.control({ position: 'topright' });
-    control.onAdd = () => controlDiv;
-    control.addTo(map);
-
-    // Clean up
-    return () => {
-      setTimeout(() => {
-        root.unmount();
-        control.remove();
-      }, 0);
-    };
-  }, [map, onToggle, isFullscreen]);
-
-  return null;
-}
-
-function DrawingTools() {
+function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragModeChange }) {
   const map = useMap();
 
   useEffect(() => {
-    if (!map || !map.pm) return;
+    if (!map || !userLayerGroupRef.current) return;
 
-    // Enable all drawing and editing tools
     map.pm.addControls({
       position: 'topleft',
       drawMarker: true,
-      drawPolyline: true,
-      drawCircleMarker: true,
-      drawCircle: true,
-      drawPolygon: true,
-      drawRectangle: true,
-      editMode: true,     // Enable editing
-      dragMode: true,     // Enable dragging
-      removalMode: true,  // Enable removal
+      drawCircle: false,
+      drawPolyline: false,
+      drawPolygon: false,
+      drawRectangle: false,
+      drawCircleMarker: false,
+      editMode: false,
+      dragMode: true,
+      removalMode: true,
     });
 
-    // Handle created shapes
+    map.on('pm:drawstart', (e) => {
+      if (e.workingLayer && e.workingLayer._tooltip) {
+        e.workingLayer._tooltip.remove();
+      }
+    });
+
     map.on('pm:create', (e) => {
+      if (e.shape !== 'Marker') return;
+
       const layer = e.layer;
+      const latlng = layer.getLatLng();
 
-      // Ensure newly created layers are editable (opposite of our GeoJSON)
+      userLayerGroupRef.current.addLayer(layer);
       layer.pmIgnore = false;
-      layer.options.pmIgnore = false;
 
-      // Your existing popup code
-      if (layer instanceof L.Circle) {
-        const radius = layer.getRadius().toFixed(2);
-        layer.bindPopup(`Radius: ${radius} meters`).openPopup();
-      }
+      onNewMarker(latlng, layer);
+    });
 
-      if (layer instanceof L.Polygon || layer instanceof L.Rectangle) {
-        const latlngs = layer.getLatLngs()[0];
-        const area = L.GeometryUtil.geodesicArea(latlngs);
-        const readableArea = (area / 1000000).toFixed(2);
-        layer.bindPopup(`Area: ${readableArea} km²`).openPopup();
+    map.on('pm:remove', (e) => {
+      const layer = e.layer;
+      if (!(layer instanceof L.Marker)) return;
+
+      const markerId = layer.options.markerId;
+      if (markerId) {
+        onRequestDelete(markerId, layer);
+      } else {
+        userLayerGroupRef.current.removeLayer(layer);
       }
     });
 
-    // Optional: Prevent editing of GeoJSON layers even if someone tries to enable all
-    map.on('pm:globaleditmodetoggled', () => {
-      const allLayers = map.pm.getGeomanLayers();
-      allLayers.forEach(layer => {
-        if (layer.pmIgnore) {
-          layer.pm.disable();
-        }
-      });
+    map.on('pm:globaldragmodetoggled', (e) => {
+      if (typeof onDragModeChange === 'function') {
+        onDragModeChange(e.enabled);
+      }
     });
 
-  }, [map]);
+    return () => {
+      map.pm.removeControls();
+      map.off('pm:create');
+      map.off('pm:remove');
+      map.off('pm:globaldragmodetoggled');
+    };
+  }, [map, userLayerGroupRef, onNewMarker, onRequestDelete, onDragModeChange]);
 
   return null;
 }
 
 export default function Map() {
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [geoData, setGeoData] = useState(null);
   const [hoveredBarangay, setHoveredBarangay] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [newMarker, setNewMarker] = useState(null);
+  const [savedMarkers, setSavedMarkers] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const userLayerGroupRef = useRef(L.featureGroup());
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [markerToDelete, setMarkerToDelete] = useState(null);
+  const [pendingLayer, setPendingLayer] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [markerToEdit, setMarkerToEdit] = useState(null);
+  const [dragModeEnabled, setDragModeEnabled] = useState(false);
+
+  const handleEditSubmit = async ({ label, location, industry }) => {
+    if (!markerToEdit || !markerToEdit.business || !markerToEdit.business.business_id) {
+      console.warn("No valid business or business_id found in markerToEdit");
+      return;
+    }
+
+    const businessId = markerToEdit.business.business_id;
+
+    try {
+      // Update the Business
+      await axios.put(`http://127.0.0.1:8000/api/businesses/${businessId}/`, {
+        bsns_name: label,
+        bsns_address: location,
+        industry,
+      });
+
+      // Update the Marker label
+      await axios.put(`http://127.0.0.1:8000/api/markers/${markerToEdit.marker_id}/`, {
+        label,
+        latitude: markerToEdit.latitude,
+        longitude: markerToEdit.longitude,
+        business_id: businessId,
+      });
+
+      // Update the local state
+      setSavedMarkers(prev =>
+        prev.map(m => m.marker_id === markerToEdit.marker_id
+          ? {
+            ...m,
+            label,
+            business: {
+              ...m.business,
+              bsns_name: label,
+              bsns_address: location,
+              industry,
+            }
+          }
+          : m
+        )
+      );
+
+      setEditModalOpen(false);
+      setMarkerToEdit(null);
+    } catch (err) {
+      console.error("❌ Error updating marker or business:", err.response?.data || err);
+    }
+  };
+
+
+  const refreshMarkers = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get('http://127.0.0.1:8000/api/markers/');
+      setSavedMarkers(response.data);
+    } catch (error) {
+      console.error('Error refreshing markers:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetch('/assets/san_fernando_boundary.geojson')
       .then(res => res.json())
-      .then(data => {
-        console.log("GeoJSON loaded:", data);
-        setGeoData(data);
+      .then(setGeoData)
+      .catch(err => console.error("Error loading GeoJSON:", err));
+
+    refreshMarkers();
+  }, [refreshMarkers]);
+
+  useEffect(() => {
+    const map = userLayerGroupRef.current._map;
+    if (!map) return;
+
+    const enableDragging = () => {
+      userLayerGroupRef.current.eachLayer(layer => {
+        if (layer instanceof L.Marker) {
+          layer.dragging?.enable();
+        }
       });
+    };
+
+    const disableDragging = () => {
+      userLayerGroupRef.current.eachLayer(layer => {
+        if (layer instanceof L.Marker) {
+          layer.dragging?.disable();
+        }
+      });
+    };
+
+    map.on('pm:dragstart', enableDragging);
+    map.on('pm:dragend', disableDragging);
+
+    return () => {
+      map.off('pm:dragstart', enableDragging);
+      map.off('pm:dragend', disableDragging);
+    };
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(refreshMarkers, 30000);
+    return () => clearInterval(interval);
+  }, [refreshMarkers]);
+
+  const handleMarkerSubmit = async ({ label, location, industry }) => {
+    if (!newMarker) return;
+
+    try {
+      const businessRes = await axios.post('http://127.0.0.1:8000/api/businesses/', {
+        bsns_name: label,
+        bsns_address: location,
+        industry
+      });
+
+      const businessId = businessRes.data.business_id;
+
+      const markerRes = await axios.post('http://127.0.0.1:8000/api/markers/', {
+        label,
+        latitude: newMarker.lat,
+        longitude: newMarker.lng,
+        business_id: businessId,
+      });
+
+      if (newMarker.layer) {
+        newMarker.layer.options.markerId = markerRes.data.id;
+      }
+
+      setSavedMarkers(prev => [...prev, markerRes.data]);
+      setModalOpen(false);
+      setNewMarker(null);
+    } catch (err) {
+      if (err.response) {
+        console.error('🛑 Marker API error:', err.response.data);
+      } else {
+        console.error('❌ Unexpected marker error:', err);
+      }
+    }
+  };
+
+  const handleMarkerDelete = async (markerId) => {
+    try {
+      await axios.delete(`http://127.0.0.1:8000/api/markers/${markerId}/`);
+      setSavedMarkers(prev => prev.filter(m => m.id !== markerId));
+
+      userLayerGroupRef.current.eachLayer(layer => {
+        if (layer.options.markerId === markerId) {
+          userLayerGroupRef.current.removeLayer(layer);
+        }
+      });
+    } catch (err) {
+      if (err.response) {
+        console.error('🛑 Backend validation error:', err.response.data);
+      } else {
+        console.error('❌ Error saving marker with business:', err);
+      }
+    }
+  };
+
+  const handleMarkerDrag = async (e, marker) => {
+    const { lat, lng } = e.target.getLatLng();
+
+    let businessId = marker.business_id;
+
+    if (Array.isArray(businessId)) {
+      businessId = businessId[0];
+    }
+
+    if (typeof businessId === 'object' && businessId !== null) {
+      businessId = businessId.business_id;
+    }
+
+    try {
+      await axios.put(`http://127.0.0.1:8000/api/markers/${marker.marker_id}/`, {
+        label: marker.label,
+        latitude: lat,
+        longitude: lng,
+      });
+
+      setSavedMarkers(prev =>
+        prev.map(m => (m.marker_id === marker.marker_id ? { ...m, latitude: lat, longitude: lng } : m))
+      );
+    } catch (err) {
+      console.error('Error updating marker:', err.response?.data || err);
+    }
+  };
+
+  const handleNewMarker = (latlng, layer) => {
+    setNewMarker({
+      ...latlng,
+      layer
+    });
+    setModalOpen(true);
+  };
+
+  const confirmMarkerDeletion = (markerId, layer) => {
+    userLayerGroupRef.current.addLayer(layer);
+    setMarkerToDelete(markerId);
+    setPendingLayer(layer);
+    setDeleteModalOpen(true);
+  };
+
   return (
-    <div className={`${isFullscreen ? 'fixed inset-0 z-50' : 'relative w-full h-full'} bg-[#EDF1FA] flex`}>
+    <div className="relative w-full h-full bg-[#EDF1FA] flex">
       {hoveredBarangay && (
         <div className="absolute top-3 left-15 z-[1000] bg-white shadow-md rounded p-3 max-w-xs">
           <div className="text-sm font-semibold text-gray-700">Barangay</div>
-          <div className="text-lg font-bold text-gray-900">
-            {hoveredBarangay ? hoveredBarangay : <span className="text-gray-400 italic">Hover on a barangay</span>}
-          </div>
+          <div className="text-lg font-bold text-gray-900">{hoveredBarangay}</div>
         </div>
-
       )}
+
+      {isLoading && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[1000] bg-white p-4 rounded shadow-lg">
+          Loading markers...
+        </div>
+      )}
+
       <MapContainer
         center={[16.6145, 120.3158]}
         zoom={13}
-        maxZoom={18}
-        zoomSnap={0}
         scrollWheelZoom={true}
         className="w-full h-full z-10"
       >
@@ -217,61 +390,107 @@ export default function Map() {
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           url="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
-        {geoData && (
-          <LockedGeoJSONLayer data={geoData} setHoveredBarangay={setHoveredBarangay}
-            style={{
-              color: 'black',
-              weight: 1,
-              fillColor: 'transparent',
-              fillOpacity: 0.3,
-            }}
-            onEachFeature={(feature, layer) => {
-              const name = feature.properties.name || 'Barangay';
 
-              // Lock the layer completely from PM editing
-              if (layer.pm && layer.pm._layer) {
-                layer.pm._layer.pmIgnore = true; // leafet.pm will skip this
-              }
-              if (layer.pm) {
-                layer.pm.disable();
-              }
-
-              // Prevent dragging
-              if (layer.dragging) {
-                layer.dragging.disable();
-              }
-
-              // Hover effect
-              layer.on({
-                mouseover: (e) => {
-                  const l = e.target;
-                  l.setStyle({
-                    weight: 2,
-                    color: '#FF8800',
-                    fillOpacity: 0.5,
-                  });
-                  setHoveredBarangay(name);
-                },
-                mouseout: (e) => {
-                  const l = e.target;
-                  l.setStyle({
-                    weight: 1,
-                    color: 'black',
-                    fillOpacity: 0.3,
-                  });
-                  setHoveredBarangay(null);
-                },
-              });
-            }}
-
-          />
-        )}
-        <FullscreenControl
-          onToggle={() => setIsFullscreen(!isFullscreen)}
-          isFullscreen={isFullscreen}
+        <FeatureGroup ref={userLayerGroupRef}></FeatureGroup>
+        {geoData && <LockedGeoJSONLayer data={geoData} setHoveredBarangay={setHoveredBarangay} />}
+        <DrawingTools
+          userLayerGroupRef={userLayerGroupRef}
+          onNewMarker={handleNewMarker}
+          onRequestDelete={confirmMarkerDeletion}
+          onDragModeChange={setDragModeEnabled}
         />
-        <DrawingTools />
+
+
+        {savedMarkers.map((marker) => (
+          <Marker
+            key={marker.marker_id}
+            position={[marker.latitude, marker.longitude]}
+            draggable={dragModeEnabled}
+            eventHandlers={{
+              dragend: (e) => handleMarkerDrag(e, marker)
+            }}
+            ref={(ref) => {
+              if (ref) {
+                ref.options.markerId = marker.marker_id;
+                ref.feature = {
+                  properties: {
+                    id: marker.marker_id
+                  }
+                };
+              }
+            }}
+          >
+            <Popup>
+              <div className="text-sm">
+                <div className="font-bold">{marker.label}</div>
+                <div>{marker.business?.bsns_address}</div>
+                <div className="mb-2 capitalize">{marker.business?.industry}</div>
+                <button
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
+                  onClick={() => {
+                    setMarkerToEdit(marker);
+                    setEditModalOpen(true);
+                  }}
+                >
+                  Edit
+                </button>
+              </div>
+            </Popup>
+
+          </Marker>
+        ))}
       </MapContainer>
+
+      {modalOpen && (
+        <MarkerFormModal
+          isOpen={modalOpen}
+          onClose={() => {
+            if (newMarker?.layer) {
+              userLayerGroupRef.current.removeLayer(newMarker.layer);
+            }
+            setModalOpen(false);
+            setNewMarker(null);
+          }}
+          onSubmit={handleMarkerSubmit}
+        />
+      )}
+
+      {deleteModalOpen && (
+        <DeleteConfirmModal
+          isOpen={deleteModalOpen}
+          onCancel={() => {
+            setDeleteModalOpen(false);
+            setMarkerToDelete(null);
+            if (pendingLayer) {
+              userLayerGroupRef.current.removeLayer(pendingLayer);
+              setPendingLayer(null);
+            }
+          }}
+          onConfirm={async () => {
+            await handleMarkerDelete(markerToDelete);
+            setDeleteModalOpen(false);
+            setMarkerToDelete(null);
+            setPendingLayer(null);
+          }}
+        />
+      )}
+
+      {editModalOpen && markerToEdit && (
+        <MarkerEditModal
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false);
+            setMarkerToEdit(null);
+          }}
+          onSubmit={handleEditSubmit}
+          defaultValues={{
+            label: markerToEdit.business?.bsns_name || '',
+            location: markerToEdit.business?.bsns_address || '',
+            industry: markerToEdit.business?.industry || '',
+          }}
+        />
+      )}
+
     </div>
   );
 }
