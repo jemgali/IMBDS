@@ -10,8 +10,8 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData, mode, s
         last_name: userData?.last_name || "",
         email: userData?.email || "",
         password: userData?.password || "",
-        user_role: userData?.user_role || "",
-        user_status: userData?.user_status || "online",
+        user_role: userData?.user_role || "employee",
+        user_status: userData?.user_status || "active",
     });
 
     // Reset form when modal opens or userData changes (for edit mode)
@@ -22,8 +22,8 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData, mode, s
             last_name: userData?.last_name || "",
             email: userData?.email || "",
             password: userData?.password || "", // Password should typically not be pre-filled for security
-            user_role: userData?.user_role || "",
-            user_status: userData?.user_status || "online",
+            user_role: userData?.user_role || "employee",
+            user_status: userData?.user_status || "active",
         });
     }, [userData, isOpen]); // Depend on userData and isOpen
 
@@ -37,17 +37,17 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData, mode, s
     };
 
     return (
-        <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-[2px]">
-            <div className="bg-white rounded-lg w-full max-w-xl p-6">
+        <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-[2px] bg-opacity-30">
+            <div className="bg-white rounded-lg w-full max-w-xl p-6 shadow-lg">
                 <h2 className="text-xl font-semibold mb-6 text-center">{mode === "edit" ? "Edit User" : "Add User"}</h2>
                 {submitError && ( // Display submission error
-                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md relative mb-4 text-sm" role="alert">
                         <strong className="font-bold">Error: </strong>
                         <span className="block sm:inline">{submitError}</span>
                     </div>
                 )}
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
                         <input
                             name="username"
@@ -55,33 +55,33 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData, mode, s
                             type="text"
                             value={form.username}
                             onChange={handleChange}
-                            className="w-full px-4  text-black"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             required
                         />
                     </div>
-                    <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
                         <input
                             name="first_name"
                             type="text"
                             value={form.first_name}
                             onChange={handleChange}
-                            className="w-full px-4 text-black"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             required
                         />
                     </div>
-                    <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
                         <input
                             name="last_name"
                             type="text"
                             value={form.last_name}
                             onChange={handleChange}
-                            className="w-full px-4 text-black"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             required
                         />
                     </div>
-                    <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                         <input
                             name="email"
@@ -89,11 +89,11 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData, mode, s
                             type="email"
                             value={form.email}
                             onChange={handleChange}
-                            className="w-full px-4 text-black"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             required
                         />
                     </div>
-                    <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
                         <input
                             name="password"
@@ -101,44 +101,29 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData, mode, s
                             type="password"
                             value={form.password || ""}
                             onChange={handleChange}
-                            className="w-full px-4 text-black"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             required={mode !== "edit"} // require password only when creating
                         />
                     </div>
-
-                    <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                        <select
-                            name="user_role"
-                            value={form.user_role}
-                            onChange={handleChange}
-                            className="w-full px-4 text-black"
-                            required
-                        >
-                            <option value="">Select Role</option>
-                            <option value="employee">Employee</option>
-                        </select>
-                    </div>
-                    <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                         <select
                             name="user_status"
                             value={form.user_status}
                             onChange={handleChange}
-                            className="w-full px-4 text-black"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                             required
                         >
-                            <option value="online">Online</option>
-                            <option value="offline">Offline</option>
+                            <option value="active">Active</option>
                             <option value="archive">Archived</option>
                         </select>
                     </div>
 
                     <div className="col-span-full flex justify-end gap-2 mt-4">
-                        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded">
+                        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">
                             Cancel
                         </button>
-                        <button type="submit" className="px-4 py-2 bg-[#3F5BA9] text-white rounded">
+                        <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
                             {mode === "edit" ? "Update" : "Create"}
                         </button>
                     </div>

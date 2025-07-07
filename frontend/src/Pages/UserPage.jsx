@@ -26,19 +26,22 @@ const UserPage = () => {
     }
 
     if (!user) {
-      console.warn('User not logged in. Redirecting to login.');
-      navigate('/login');
+      console.warn("User not logged in. Redirecting to login.");
+      navigate("/login");
       setIsLoadingUsers(false);
       return;
     }
 
     try {
-      const response = await apiClient.get('users/');
+      const response = await apiClient.get("users/");
       setUsers(response.data);
     } catch (error) {
-      console.error('Error fetching users:', error);
-      setFetchError('Failed to load users. Please try again.');
-      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      console.error("Error fetching users:", error);
+      setFetchError("Failed to load users. Please try again.");
+      if (
+        error.response &&
+        (error.response.status === 401 || error.response.status === 403)
+      ) {
         // If 401 (Unauthorized) or 403 (Forbidden), log out the user
         logout();
       }
@@ -53,7 +56,7 @@ const UserPage = () => {
       fetchUsers();
     } else if (!authLoading && !user) {
       // If not loading auth and no user, redirect to login
-      navigate('/login');
+      navigate("/login");
     }
   }, [user, apiClient, logout, navigate, authLoading]); // Added authLoading to dependencies
 
@@ -71,8 +74,8 @@ const UserPage = () => {
 
   const handleModalSubmit = async (formData) => {
     if (!user) {
-      console.error('Cannot submit: User not logged in.');
-      navigate('/login');
+      console.error("Cannot submit: User not logged in.");
+      navigate("/login");
       return;
     }
 
@@ -92,7 +95,8 @@ const UserPage = () => {
 
       if (err.response) {
         if (err.response.status === 405) {
-          errorMessage = "Action not allowed for this resource. (Method Not Allowed)";
+          errorMessage =
+            "Action not allowed for this resource. (Method Not Allowed)";
         } else if (err.response.status === 401 || err.response.status === 403) {
           errorMessage = "Authentication failed. Please log in again.";
           logout();
@@ -100,10 +104,10 @@ const UserPage = () => {
           errorMessage = err.response.data.detail;
         } else if (err.response.data) {
           // Attempt to stringify complex error objects or extract specific messages
-          if (typeof err.response.data === 'object') {
-              errorMessage = Object.values(err.response.data).flat().join(', ');
+          if (typeof err.response.data === "object") {
+            errorMessage = Object.values(err.response.data).flat().join(", ");
           } else {
-              errorMessage = err.response.data;
+            errorMessage = err.response.data;
           }
         }
       }
@@ -141,41 +145,61 @@ const UserPage = () => {
         ) : fetchError ? (
           <div className="text-center py-4 text-red-600">{fetchError}</div>
         ) : (
-          <table className="w-full text-sm border-collapse bg-white shadow">
-            <thead className="bg-[#3F5BA9] text-white">
-              <tr>
-                <th className="p-3">ID</th>
-                <th className="p-3">Username</th>
-                <th className="p-3">Email</th>
-                <th className="p-3">Firstname</th>
-                <th className="p-3">Lastname</th>
-                <th className="p-3">Role</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((u) => (
-                <tr key={u.id} className="border-b hover:bg-gray-50">
-                  <td className="p-3">{u.id}</td>
-                  <td className="p-3">{u.username}</td>
-                  <td className="p-3">{u.email}</td>
-                  <td className="p-3">{u.first_name}</td>
-                  <td className="p-3">{u.last_name}</td>
-                  <td className="p-3">{u.user_role}</td>
-                  <td className="p-3">{u.user_status}</td>
-                  <td className="p-3">
-                    <button
-                      className="px-3 py-1 bg-[#3F5BA9] text-white rounded"
-                      onClick={() => handleEdit(u)}
-                    >
-                      Edit
-                    </button>
-                  </td>
+          <div className="overflow-x-auto rounded-lg shadow overflow-y-auto relative">
+            <table className="w-full text-sm text-left text-gray-500">
+              <thead className="text-xs text-white uppercase bg-[#3F5BA9]">
+                <tr>
+                  <th scope="col" className="px-6 py-3">
+                    ID
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Username
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Email
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Firstname
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Lastname
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Role
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Status
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredUsers.map((u) => (
+                  <tr key={u.id} className="bg-white border-b hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                      {u.id}
+                    </td>
+                    <td className="px-6 py-4">{u.username}</td>
+                    <td className="px-6 py-4">{u.email}</td>
+                    <td className="px-6 py-4">{u.first_name}</td>
+                    <td className="px-6 py-4">{u.last_name}</td>
+                    <td className="px-6 py-4">{u.user_role}</td>
+                    <td className="px-6 py-4">{u.user_status}</td>
+                    <td className="px-6 py-4">
+                      <button
+                        className="px-3 py-1 bg-[#3F5BA9] text-white rounded hover:bg-blue-700"
+                        onClick={() => handleEdit(u)}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
         <UserModal

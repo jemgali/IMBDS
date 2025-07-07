@@ -21,7 +21,7 @@ const LoginPage = () => {
         if (loggedInUser.user_role === "Admin") {
             console.log("Redirecting to /admin/Dashboard");
             navigate("/admin/Dashboard");
-        } else if (loggedInUser.user_role === "employee") { // Ensure case matches backend ('employee' vs 'Employee')
+        } else if (loggedInUser.user_role === "Employee") { // Ensure case matches backend ('employee' vs 'Employee')
             console.log("Redirecting to /employee/Dashboard");
             navigate("/employee/Dashboard");      
         }

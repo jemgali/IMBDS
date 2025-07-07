@@ -27,36 +27,36 @@ export default function MarkerEditModal({ isOpen, onClose, onSubmit, defaultValu
         <h2 className="text-lg font-semibold mb-4">Edit Business Details</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Business Name */}
-          <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
             <input
               type="text"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              className="w-full px-4 text-black"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
           {/* Address */}
-          <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="w-full px-4 text-black"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             />
           </div>
 
           {/* Industry */}
-          <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Industry</label>
             <select
               value={industry}
               onChange={(e) => setIndustry(e.target.value)}
-              className="w-full px-4 text-black"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               required
             >
               <option value="">Select Industry</option>
@@ -75,13 +75,13 @@ export default function MarkerEditModal({ isOpen, onClose, onSubmit, defaultValu
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded"
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-700 hover:bg-blue-500 text-white rounded"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
               Save Changes
             </button>

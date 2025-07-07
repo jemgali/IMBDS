@@ -32,8 +32,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
 
     STATUS_CHOICES = (
-        ('online', 'Online'),
-        ('offline', 'Offline'),
+        ('active', 'Active'),
         ('archive', 'Archive'),
     )
 
@@ -43,8 +42,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     password = models.CharField(max_length=128)  
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
-    user_role = models.CharField(max_length=10, choices=ROLE_CHOICES)
-    user_status = models.CharField(max_length=8, choices=STATUS_CHOICES, default='online')
+    user_role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='employee')
+    user_status = models.CharField(max_length=8, choices=STATUS_CHOICES, default='active')
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     

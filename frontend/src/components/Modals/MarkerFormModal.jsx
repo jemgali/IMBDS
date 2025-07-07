@@ -27,7 +27,7 @@ export default function MarkerFormModal({ isOpen, onSubmit, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-[9999] backdrop-blur-[2px]">
+    <div className="fixed inset-0 flex items-center justify-center z-[9999] backdrop-blur-[2px] bg-opacity-30">
       <div className="bg-white p-6 rounded shadow-md w-96">
         {!confirming ? (
           <>
@@ -39,34 +39,34 @@ export default function MarkerFormModal({ isOpen, onSubmit, onClose }) {
               }}
               className="space-y-4"
             >
-              <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
                 <input
                   type="text"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
-                  className="w-full px-4 text-black"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
 
-              <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                 <input
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="w-full px-4 text-black"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
 
-              <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Business Type</label>
                 <select
                   value={industry}
                   onChange={(e) => setIndustry(e.target.value)}
-                  className="w-full px-4 text-black"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 >
                   <option value="">Select Business Type</option>
@@ -84,13 +84,13 @@ export default function MarkerFormModal({ isOpen, onSubmit, onClose }) {
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded"
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[rgb(63,91,169)] hover:bg-blue-300 text-white rounded"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Continue
                 </button>
@@ -108,13 +108,13 @@ export default function MarkerFormModal({ isOpen, onSubmit, onClose }) {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setConfirming(false)}
-                className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded"
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
               >
                 Back
               </button>
               <button
                 onClick={handleFinalSubmit}
-                className="px-4 py-2 hover:bg-[#5C9A5C] text-white bg-green-700 rounded"
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
               >
                 Confirm & Save
               </button>

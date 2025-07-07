@@ -24,19 +24,22 @@ const BusinessPage = () => {
     }
 
     if (!user) {
-      console.warn('User not logged in. Redirecting to login.');
-      navigate('/login');
+      console.warn("User not logged in. Redirecting to login.");
+      navigate("/login");
       setIsLoadingBusinesses(false);
       return;
     }
 
     try {
-      const response = await apiClient.get('businesses/');
+      const response = await apiClient.get("businesses/");
       setBusinesses(response.data);
     } catch (error) {
-      console.error('Error fetching businesses:', error);
-      setFetchError('Failed to load businesses. Please try again.');
-      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      console.error("Error fetching businesses:", error);
+      setFetchError("Failed to load businesses. Please try again.");
+      if (
+        error.response &&
+        (error.response.status === 401 || error.response.status === 403)
+      ) {
         logout();
       }
     } finally {
@@ -48,7 +51,7 @@ const BusinessPage = () => {
     if (!authLoading && user) {
       fetchBusinesses();
     } else if (!authLoading && !user) {
-      navigate('/login');
+      navigate("/login");
     }
   }, [user, apiClient, logout, navigate, authLoading]);
 
@@ -60,8 +63,8 @@ const BusinessPage = () => {
 
   const handleModalSubmit = async (formData) => {
     if (!user) {
-      console.error('Cannot submit: User not logged in.');
-      navigate('/login');
+      console.error("Cannot submit: User not logged in.");
+      navigate("/login");
       return;
     }
 
@@ -84,17 +87,18 @@ const BusinessPage = () => {
 
       if (err.response) {
         if (err.response.status === 405) {
-          errorMessage = "Action not allowed for this resource. (Method Not Allowed)";
+          errorMessage =
+            "Action not allowed for this resource. (Method Not Allowed)";
         } else if (err.response.status === 401 || err.response.status === 403) {
           errorMessage = "Authentication failed. Please log in again.";
           logout();
         } else if (err.response.data && err.response.data.detail) {
           errorMessage = err.response.data.detail;
         } else if (err.response.data) {
-          if (typeof err.response.data === 'object') {
-              errorMessage = Object.values(err.response.data).flat().join(', ');
+          if (typeof err.response.data === "object") {
+            errorMessage = Object.values(err.response.data).flat().join(", ");
           } else {
-              errorMessage = err.response.data;
+            errorMessage = err.response.data;
           }
         }
       }
@@ -127,37 +131,56 @@ const BusinessPage = () => {
         ) : fetchError ? (
           <div className="text-center py-4 text-red-600">{fetchError}</div>
         ) : (
-          <table className="w-full text-sm border-collapse bg-white shadow">
-            <thead className="bg-[#3F5BA9] text-white">
-              <tr>
-                <th className="p-3">ID</th>
-                <th className="p-3">Name</th>
-                <th className="p-3">Address</th>
-                <th className="p-3">Industry</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredBusinesses.map((b) => (
-                <tr key={b.business_id} className="border-b hover:bg-gray-50">
-                  <td className="p-3">{b.business_id}</td>
-                  <td className="p-3">{b.bsns_name}</td>
-                  <td className="p-3">{b.bsns_address}</td>
-                  <td className="p-3 capitalize">{b.industry}</td>
-                  <td className="p-3 capitalize">{b.status}</td>
-                  <td className="p-3">
-                    <button
-                      className="px-3 py-1 bg-[#3F5BA9] text-white rounded"
-                      onClick={() => handleEdit(b)}
-                    >
-                      Edit
-                    </button>
-                  </td>
+          <div className="overflow-x-auto rounded-lg shadow overflow-y-auto relative">
+            <table className="w-full text-sm text-left text-gray-500">
+              <thead className="text-xs text-white uppercase bg-[#3F5BA9]">
+                <tr>
+                  <th scope="col" className="px-6 py-3">
+                    ID
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Name
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Address
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Industry
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Status
+                  </th>
+                  <th scope="col" className="px-6 py-3">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredBusinesses.map((b) => (
+                  <tr
+                    key={b.business_id}
+                    className="bg-white border-b hover:bg-gray-50"
+                  >
+                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                      {b.business_id}
+                    </td>
+                    <td className="px-6 py-4">{b.bsns_name}</td>
+                    <td className="px-6 py-4">{b.bsns_address}</td>
+                    <td className="px-6 py-4 capitalize">{b.industry}</td>
+                    <td className="px-6 py-4 capitalize">{b.status}</td>
+                    <td className="px-6 py-4">
+                      <button
+                        className="px-3 py-1 bg-[#3F5BA9] text-white rounded hover:bg-blue-700"
+                        onClick={() => handleEdit(b)}
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}{" "}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {modalOpen && (
@@ -169,9 +192,9 @@ const BusinessPage = () => {
             }}
             onSubmit={handleModalSubmit}
             defaultValues={{
-              label: editingBusiness?.bsns_name || '',
-              location: editingBusiness?.bsns_address || '',
-              industry: editingBusiness?.industry || '',
+              label: editingBusiness?.bsns_name || "",
+              location: editingBusiness?.bsns_address || "",
+              industry: editingBusiness?.industry || "",
             }}
             submitError={submitError} // Pass submitError to the modal
           />

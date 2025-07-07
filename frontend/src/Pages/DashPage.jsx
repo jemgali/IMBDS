@@ -129,7 +129,7 @@ const DashPage = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold text-gray-700 mb-4">Businesses</h2>
             <p className="text-4xl font-bold text-green-600">{dashboardData.totalBusinesses}</p>
-            <p className="text-gray-500">Total Businesses Registered</p>
+            <p className="text-gray-500 mb-2">Total Businesses Registered</p>
             <ul className="mt-4 text-sm text-gray-600 space-y-1">
               <li>Active: <span className="font-medium">{dashboardData.activeBusinesses}</span></li>
               <li>Inactive: <span className="font-medium">{dashboardData.inactiveBusinesses}</span></li>
@@ -142,7 +142,7 @@ const DashPage = () => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold text-gray-700 mb-4">Investibles</h2>
             <p className="text-4xl font-bold text-purple-600">{dashboardData.totalInvestibles}</p>
-            <p className="text-gray-500">Total Investible Properties</p>
+            <p className="text-gray-500 mb-2">Total Investible Properties</p>
             <ul className="mt-4 text-sm text-gray-600 space-y-1">
               <li>Available: <span className="font-medium">{dashboardData.availableInvestibles}</span></li>
               <li>Sold: <span className="font-medium">{dashboardData.soldInvestibles}</span></li>
