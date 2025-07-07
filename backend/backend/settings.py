@@ -69,7 +69,7 @@ AUTH_USER_MODEL = 'api.User'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        # 'api.authentication.CookieJWTAuthentication', # Changed to your custom authentication class
+        'api.authentication.CookieJWTAuthentication', # Changed to your custom authentication class
         'rest_framework_simplejwt.authentication.JWTAuthentication', # Keep this as a fallback or for other token types
     ],
     'DEFAULT_PERMISSION_CLASSES': [
@@ -85,6 +85,9 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_SAMESITE": "Lax",
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    # Add this if not already present, it's important for refresh token behavior
+    "ROTATE_REFRESH_TOKENS": True, # This is crucial for security and preventing refresh token reuse
+    "BLACKLIST_AFTER_ROTATION": True, # Blacklist the old refresh token after rotation
 }
 
 TEMPLATES = [

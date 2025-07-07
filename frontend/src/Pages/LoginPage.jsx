@@ -42,7 +42,7 @@ const LoginPage = () => {
                     <span className="block sm:inline">{error}</span>
                 </div>
             )}
-            <div className="rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]">
+            <div className="rounded-xl p-2 bg-white shadow-[0_-2px_8px_0px_rgba(0,0,0,0.2)]">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Username:
               </label>
@@ -55,7 +55,7 @@ const LoginPage = () => {
                 onChange={(e) => setUsername(e.target.value)}
               />
             </div>
-            <div className="rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]">
+            <div className="rounded-xl p-2 bg-white shadow-[0_-2px_8px_0px_rgba(0,0,0,0.2)]">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Password:
               </label>

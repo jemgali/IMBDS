@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import status
 from .models import User, Business, Investible, Report, Marker
-from .serializers import UserSerializer, BusinessSerializer, InvestibleSerializer,MarkerSerializer,  ReportSerializer
+from .serializers import UserSerializer, BusinessSerializer, InvestibleSerializer, MarkerSerializer, ReportSerializer
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 # TOKEN
@@ -147,6 +147,74 @@ class MarkerViewSet(viewsets.ModelViewSet):
 class BusinessViewSet(viewsets.ModelViewSet):
     queryset = Business.objects.all()
     serializer_class = BusinessSerializer
+
+
+# BUSINESS
+@api_view(['GET'])
+@permission_classes([IsAuthenticated]) # Protect this view
+def get_all_businesses(request):
+    businesses = Business.objects.all()
+    serializer = BusinessSerializer(businesses, many=True)
+    return Response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated]) # Protect this view
+def get_business(request, pk):
+    try:
+        business = Business.objects.get(business_id=pk)
+    except Business.DoesNotExist:
+        return Response({'error': 'Business not found'}, status=status.HTTP_404_NOT_FOUND)
+    serializer = BusinessSerializer(business)
+    return Response(serializer.data)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated]) # Protect this view
+def create_business(request):
+    # Define required fields for creating a business
+    required_fields = ['bsns_name', 'bsns_address', 'industry']
+    missing_fields = [field for field in required_fields if not request.data.get(field)]
+    if missing_fields:
+        return Response(
+            {'error': 'The following fields are required:', 'missing_fields': missing_fields},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    serializer = BusinessSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    else:
+        return Response({'error': 'Invalid data.', 'details': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['PUT', 'PATCH']) # Allow both PUT (full update) and PATCH (partial update)
+@permission_classes([IsAuthenticated]) # Protect this view
+def update_business(request, pk):
+    try:
+        business = Business.objects.get(business_id=pk)
+    except Business.DoesNotExist:
+        return Response({'error': 'Business not found'}, status=status.HTTP_404_NOT_FOUND)
+    # Use partial=True to allow PATCH requests to update only specified fields
+    serializer = BusinessSerializer(business, data=request.data, partial=True)
+    if serializer.is_valid():
+        # Check if there are any changes by comparing the original data with the validated data
+        original_data = BusinessSerializer(business).data
+        updated_data = serializer.validated_data
+        changes_made = any(original_data.get(field) != updated_data.get(field) for field in updated_data)
+        if not changes_made:
+            return Response({'message': 'No changes made'}, status=status.HTTP_200_OK)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response({'error': 'Invalid data.', 'details': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+# @api_view(['DELETE'])
+# @permission_classes([IsAuthenticated]) # Protect this view
+# def delete_business(request, pk):
+#     try:
+#         business = Business.objects.get(business_id=pk)
+#     except Business.DoesNotExist:
+#         return Response({'error': 'Business not found'}, status=status.HTTP_404_NOT_FOUND)
+#     business.delete()
+#     return Response({'message': 'Business deleted successfully'}, status=status.HTTP_204_NO_CONTENT) # 204 No Content for successful deletion
+
 
 #CRUD Reports
 class ReportViewSet(viewsets.ModelViewSet):

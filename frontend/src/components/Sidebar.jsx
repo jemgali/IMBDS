@@ -4,8 +4,10 @@ import { Link, useLocation } from "react-router";
 import {
   Bars3Icon,
   HomeIcon,
+  MapPinIcon,
+  BanknotesIcon,
   UserIcon,
-  Cog6ToothIcon,
+  ClipboardIcon,
   MapIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../context/AuthContext";
@@ -57,19 +59,19 @@ const Sidebar = () => {
         />
         <SidebarItem
           to={`${basePath}/Map`}
-          icon={<MapIcon className="h-6 w-6" />}
+          icon={<MapPinIcon className="h-6 w-6" />}
           label="Interactive Map"
           collapsed={collapsed}
         />
         <SidebarItem
           to={`${basePath}/Business`}
-          icon={<Cog6ToothIcon className="h-6 w-6" />}
+          icon={<BanknotesIcon className="h-6 w-6" />}
           label="Business Management"
           collapsed={collapsed}
         />
         <SidebarItem
           to={`${basePath}/Investible`}
-          icon={<Cog6ToothIcon className="h-6 w-6" />}
+          icon={<MapIcon className="h-6 w-6" />}
           label="Investible Management"
           collapsed={collapsed}
         />
@@ -83,7 +85,7 @@ const Sidebar = () => {
             />
             <SidebarItem
               to={`${basePath}/Reports`}
-              icon={<Cog6ToothIcon className="h-6 w-6" />}
+              icon={<ClipboardIcon className="h-6 w-6" />}
               label="Generate Reports"
               collapsed={collapsed}
             />
