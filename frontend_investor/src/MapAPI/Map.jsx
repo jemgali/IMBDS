@@ -1,124 +1,75 @@
-// Map.jsx
-import { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, GeoJSON, } from 'react-leaflet';
-
-import {
-  ArrowsPointingOutIcon,
-  ArrowsPointingInIcon,
-} from '@heroicons/react/24/outline';
-import ReactDOM from 'react-dom/client';
-import 'leaflet';
+// MultipleFiles/Map.jsx
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { MapContainer, TileLayer, useMap, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import { apiClient } from '../api/api_urls'; // Import apiClient
 
 function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
   const map = useMap();
-  const layerRef = useRef(null);
+  const hoverState = useRef({ currentLayer: null, timeout: null });
 
   useEffect(() => {
     if (!data || !map) return;
 
+    const clearHighlight = () => {
+      if (hoverState.current.currentLayer) {
+        hoverState.current.currentLayer.setStyle({
+          weight: 1,
+          color: 'black',
+          fillColor: 'transparent',
+          fillOpacity: 0,
+        });
+        hoverState.current.currentLayer = null;
+        setHoveredBarangay(null);
+      }
+    };
+
     const geoLayer = L.geoJSON(data, {
-      pmIgnore: true, // This is the key property to prevent PM editing
       style: {
         color: 'black',
         weight: 1,
         fillColor: 'transparent',
-        fillOpacity: 0.3,
+        fillOpacity: 0,
       },
       onEachFeature: (feature, layer) => {
         const name = feature.properties.name || 'Barangay';
 
-        // Hover effects
         layer.on({
           mouseover: (e) => {
+            clearTimeout(hoverState.current.timeout);
             const l = e.target;
-            l.setStyle({
-              weight: 2,
-              color: '#FF8800',
-              fillOpacity: 0.5,
-            });
-            setHoveredBarangay(name);
+            if (hoverState.current.currentLayer && hoverState.current.currentLayer !== l) {
+              clearHighlight();
+            }
+            hoverState.current.timeout = setTimeout(() => {
+              l.setStyle({
+                weight: 2,
+                color: '#000000',
+                fillColor: '#CCCCCC',
+                fillOpacity: 0.5,
+              });
+              l.bringToFront();
+              hoverState.current.currentLayer = l;
+              setHoveredBarangay(name);
+            }, 30);
           },
-          mouseout: (e) => {
-            const l = e.target;
-            l.setStyle({
-              weight: 1,
-              color: 'black',
-              fillOpacity: 0.3,
-            });
-            setHoveredBarangay(null);
+          mouseout: () => {
+            clearTimeout(hoverState.current.timeout);
+            hoverState.current.timeout = setTimeout(() => {
+              clearHighlight();
+            }, 50);
           },
         });
-
-        // Explicitly disable PM for this layer
-        if (layer.pm) {
-          layer.pm.disable();
-        }
-
-        // Prevent PM from attaching to this layer
-        layer.options.pmIgnore = true;
-        layer.pmIgnore = true;
-
-        // Disable dragging if available
-        if (layer.dragging) {
-          layer.dragging.disable();
-        }
       },
     });
 
     geoLayer.addTo(map);
-    layerRef.current = geoLayer;
-
     return () => {
+      clearTimeout(hoverState.current.timeout);
       map.removeLayer(geoLayer);
     };
   }, [data, map, setHoveredBarangay]);
-
-  return null;
-}
-// ...existing code...
-
-function FullscreenControl({ onToggle, isFullscreen }) {
-  const map = useMap();
-  const containerRef = useRef(null);
-
-  useEffect(() => {
-    const controlDiv = L.DomUtil.create('div', 'leaflet-bar');
-    controlDiv.style.background = 'white';
-    controlDiv.style.border = '1px solid #ccc';
-    controlDiv.style.padding = '6px';
-    controlDiv.style.cursor = 'pointer';
-    controlDiv.style.borderRadius = '4px';
-    controlDiv.style.display = 'flex';
-    controlDiv.style.alignItems = 'center';
-    controlDiv.style.justifyContent = 'center';
-
-    // Make React root for icon
-    const iconContainer = document.createElement('div');
-    controlDiv.appendChild(iconContainer);
-    const root = ReactDOM.createRoot(iconContainer);
-
-    root.render(
-      isFullscreen ? (
-        <ArrowsPointingInIcon className="h-5 w-5 text-black" />
-      ) : (
-        <ArrowsPointingOutIcon className="h-5 w-5 text-black" />
-      )
-    );
-
-    controlDiv.onclick = onToggle;
-
-    const control = L.control({ position: 'topright' });
-    control.onAdd = () => controlDiv;
-    control.addTo(map);
-
-    // Clean up
-    return () => {
-      setTimeout(() => {
-        root.unmount();
-        control.remove();
-      }, 0);
-    };
-  }, [map, onToggle, isFullscreen]);
 
   return null;
 }
@@ -137,66 +88,85 @@ function GeoJsonLoader({ setHoveredBarangay }) {
 }
 
 export default function Map() {
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [hoveredBarangay, setHoveredBarangay] = useState(null);
-  const [bounds, setBounds] = useState(null);
+  const [savedMarkers, setSavedMarkers] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch the GeoJSON and compute bounds on mount
-  useEffect(() => {
-    fetch('/assets/san_fernando_boundary.geojson')
-      .then(res => res.json())
-      .then(data => {
-        // Find the first polygon feature
-        const feature = data.features.find(f => f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'));
-        if (feature) {
-          let coords = feature.geometry.coordinates;
-          // For MultiPolygon, flatten one level
-          if (feature.geometry.type === 'MultiPolygon') {
-            coords = coords.flat();
-          }
-          // coords is now an array of [lng, lat] pairs
-          // Convert to [lat, lng] for Leaflet
-          const latlngs = coords[0].map(([lng, lat]) => [lat, lng]);
-          setBounds(latlngs);
-        }
-      });
+  const refreshMarkers = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await apiClient.get('markers/'); // Use apiClient
+      setSavedMarkers(response.data);
+    } catch (error) {
+      console.error('Error refreshing markers:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    refreshMarkers();
+  }, [refreshMarkers]);
+
+  useEffect(() => {
+    const interval = setInterval(refreshMarkers, 30000);
+    return () => clearInterval(interval);
+  }, [refreshMarkers]);
+
   return (
-    <div className={`${isFullscreen ? 'fixed inset-0 z-50' : 'relative w-full h-full'} bg-[#EDF1FA] flex`}>
+    <div className="relative w-full h-full bg-[#EDF1FA] flex">
       {hoveredBarangay && (
         <div className="absolute top-3 left-15 z-[1000] bg-white shadow-md rounded p-3 max-w-xs">
           <div className="text-sm font-semibold text-gray-700">Barangay</div>
-          <div className="text-lg font-bold text-gray-900">
-            {hoveredBarangay ? hoveredBarangay : <span className="text-gray-400 italic">Hover on a barangay</span>}
-          </div>
+          <div className="text-lg font-bold text-gray-900">{hoveredBarangay}</div>
         </div>
       )}
+
+      {isLoading && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[1000] bg-white p-4 rounded shadow-lg">
+          Loading markers...
+        </div>
+      )}
+
       <MapContainer
         center={[16.6145, 120.3158]}
         zoom={13}
-        minZoom={13}
-        maxZoom={18}
-        zoomSnap={0}
         scrollWheelZoom={true}
-        dragging={true} // <-- Always allow dragging
-        doubleClickZoom={true}
-        boxZoom={true}
-        keyboard={true}
         className="w-full h-full z-10"
-        {...(bounds ? {bounds: bounds, maxBounds: bounds, maxBoundsViscosity: 1.0} : {})}
-        zoomControl={true}
-        attributionControl={true}
       >
         <TileLayer
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           url="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
+
         <GeoJsonLoader setHoveredBarangay={setHoveredBarangay} />
-        <FullscreenControl
-          onToggle={() => setIsFullscreen(!isFullscreen)}
-          isFullscreen={isFullscreen}
-        />
+
+        {savedMarkers.map((marker) => (
+          <Marker
+            key={marker.marker_id}
+            position={[marker.latitude, marker.longitude]}
+            // draggable is removed as editing is not needed
+          >
+            <Popup>
+              <div className="text-sm">
+                <div className="font-bold">{marker.label}</div>
+                {marker.business && (
+                  <>
+                    <div>{marker.business.bsns_address}</div>
+                    <div className="mb-2 capitalize">{marker.business.industry}</div>
+                  </>
+                )}
+                {marker.invst && ( // Display investible details if available
+                  <>
+                    <div>{marker.invst.invst_location}</div>
+                    <div>{marker.invst.invst_description}</div>
+                    <div className="mb-2 capitalize">{marker.invst.status}</div>
+                  </>
+                )}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
       </MapContainer>
     </div>
   );

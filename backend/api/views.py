@@ -1,3 +1,5 @@
+# MultipleFiles/views.py
+
 from django.conf import settings
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -5,7 +7,7 @@ from rest_framework import status
 from .models import User, Business, Investible, Report, Marker
 from .serializers import UserSerializer, BusinessSerializer, InvestibleSerializer, MarkerSerializer, ReportSerializer
 from rest_framework import viewsets
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated # Import AllowAny
 # TOKEN
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
@@ -13,10 +15,11 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 
 
-# TOKEN
+# TOKEN (These views should remain protected or have specific permissions)
 @api_view(['POST'])
-@permission_classes([])
+@permission_classes([AllowAny]) # Login view should allow any
 def login_view(request):
+    # ... (login_view content remains the same) ...
     username = request.data.get('username')
     password = request.data.get('password')
 
@@ -67,8 +70,9 @@ def login_view(request):
         return Response({"message": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated]) # Logout should require authentication
 def logout_view(request):
+    # ... (logout_view content remains the same) ...
     response = Response({'message': 'Logged out successfully'}, status=200)
     
     response.delete_cookie('access_token')
@@ -81,8 +85,9 @@ def logout_view(request):
     return response
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@permission_classes([AllowAny]) # Refresh token view should allow any
 def refresh_token_view(request):
+    # ... (refresh_token_view content remains the same) ...
     refresh_token = request.COOKIES.get('refresh_token')
     if not refresh_token:
         return Response({'error': 'No refresh token'}, status=401)
@@ -112,8 +117,9 @@ def refresh_token_view(request):
         return Response({'detail': 'Invalid refresh token'}, status=403)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated]) # Protected view should require authentication
 def protected_view(request):
+    # ... (protected_view content remains the same) ...
     return Response({
         "authenticated": True,
         "user": {
@@ -126,6 +132,18 @@ def protected_view(request):
 class MarkerViewSet(viewsets.ModelViewSet):
     queryset = Marker.objects.all()
     serializer_class = MarkerSerializer
+
+    # --- MODIFIED PERMISSIONS HERE ---
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        """
+        if self.action in ['list', 'retrieve']: # Allow anyone to view (GET) markers
+            permission_classes = [AllowAny]
+        else: # For create, update, destroy, require authentication
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+    # --- END MODIFIED PERMISSIONS ---
 
     # ✅ Fix: allow partial updates (for drag updates)
     def update(self, request, *args, **kwargs):
@@ -148,17 +166,29 @@ class BusinessViewSet(viewsets.ModelViewSet):
     queryset = Business.objects.all()
     serializer_class = BusinessSerializer
 
+    # --- MODIFIED PERMISSIONS HERE ---
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        """
+        if self.action in ['list', 'retrieve']: # Allow anyone to view (GET) businesses
+            permission_classes = [AllowAny]
+        else: # For create, update, destroy, require authentication
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+    # --- END MODIFIED PERMISSIONS ---
 
-# BUSINESS
+
+# BUSINESS (These function-based views also need permission_classes)
 @api_view(['GET'])
-@permission_classes([IsAuthenticated]) # Protect this view
+@permission_classes([AllowAny]) # Allow any for public access
 def get_all_businesses(request):
     businesses = Business.objects.all()
     serializer = BusinessSerializer(businesses, many=True)
     return Response(serializer.data)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated]) # Protect this view
+@permission_classes([AllowAny]) # Allow any for public access
 def get_business(request, pk):
     try:
         business = Business.objects.get(business_id=pk)
@@ -168,9 +198,9 @@ def get_business(request, pk):
     return Response(serializer.data)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated]) # Protect this view
+@permission_classes([IsAuthenticated]) # Creating a business should likely require authentication
 def create_business(request):
-    # Define required fields for creating a business
+    # ... (create_business content remains the same) ...
     required_fields = ['bsns_name', 'bsns_address', 'industry']
     missing_fields = [field for field in required_fields if not request.data.get(field)]
     if missing_fields:
@@ -186,8 +216,9 @@ def create_business(request):
         return Response({'error': 'Invalid data.', 'details': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['PUT', 'PATCH']) # Allow both PUT (full update) and PATCH (partial update)
-@permission_classes([IsAuthenticated]) # Protect this view
+@permission_classes([IsAuthenticated]) # Updating a business should likely require authentication
 def update_business(request, pk):
+    # ... (update_business content remains the same) ...
     try:
         business = Business.objects.get(business_id=pk)
     except Business.DoesNotExist:
@@ -206,8 +237,9 @@ def update_business(request, pk):
     return Response({'error': 'Invalid data.', 'details': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 # @api_view(['DELETE'])
-# @permission_classes([IsAuthenticated]) # Protect this view
+# @permission_classes([IsAuthenticated]) # Deleting a business should likely require authentication
 # def delete_business(request, pk):
+#     # ... (delete_business content remains the same) ...
 #     try:
 #         business = Business.objects.get(business_id=pk)
 #     except Business.DoesNotExist:
@@ -216,26 +248,29 @@ def update_business(request, pk):
 #     return Response({'message': 'Business deleted successfully'}, status=status.HTTP_204_NO_CONTENT) # 204 No Content for successful deletion
 
 
-#CRUD Reports
+#CRUD Reports (These should likely remain protected)
 class ReportViewSet(viewsets.ModelViewSet):
     queryset = Report.objects.all()
     serializer_class = ReportSerializer
+    permission_classes = [IsAuthenticated] # Keep protected
 
     def create(self, request, *args, **kwargs):
         print(request.data)  
         return super().create(request, *args, **kwargs)
 
 
-# USERS
+# USERS (These should likely remain protected, except for create_user)
 @api_view(['GET'])
+@permission_classes([IsAuthenticated]) # Getting all users should be protected
 def get_users(request):
     users = User.objects.all()
     serializer = UserSerializer(users, many=True)
     return Response(serializer.data)
 
 @api_view(['POST'])
+@permission_classes([AllowAny]) # Allowing anyone to create a user (e.g., for registration)
 def create_user(request):
-    # Define required fields
+    # ... (create_user content remains the same) ...
     required_fields = ['username', 'email', 'password', 'first_name', 'last_name']
     missing_fields = [field for field in required_fields if not request.data.get(field)]
 
@@ -260,7 +295,9 @@ def create_user(request):
         return Response({'error': 'Invalid data.', 'details': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['PUT'])
+@permission_classes([IsAuthenticated]) # Updating a user should be protected
 def update_user(request, pk):
+    # ... (update_user content remains the same) ...
     try:
         user = User.objects.get(id=pk)
     except User.DoesNotExist:
@@ -295,7 +332,9 @@ def update_user(request, pk):
     return Response({'error': 'Invalid data.', 'details': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 # @api_view(['DELETE'])
+# @permission_classes([IsAuthenticated]) # Deleting a user should be protected
 # def delete_user(request, pk):
+#     # ... (delete_user content remains the same) ...
 #     try:
 #         user = User.objects.get(id=pk)
 #     except User.DoesNotExist:
@@ -304,20 +343,29 @@ def update_user(request, pk):
 #     user.delete()
 #     return Response({'message': 'User deleted successfully'}, status = 200)
 
-#CRUD Users
+#CRUD Users (This ViewSet will inherit the global IsAuthenticated unless specified)
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    # If you want to allow listing users publicly, add:
+    # def get_permissions(self):
+    #     if self.action in ['list', 'retrieve']:
+    #         permission_classes = [AllowAny]
+    #     else:
+    #         permission_classes = [IsAuthenticated]
+    #     return [permission() for permission in permission_classes]
 
 
-#CRUD Investibles
+#CRUD Investibles (These function-based views also need permission_classes)
 @api_view(['GET']) # Fetch all investibles
+@permission_classes([AllowAny]) # Allow any for public access
 def get_all_investibles(request):
     investibles = Investible.objects.all()
     serializer = InvestibleSerializer(investibles, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['GET']) # Search investible
+@permission_classes([AllowAny]) # Allow any for public access
 def get_investible(request, pk):
     try:
         investible = Investible.objects.get(investible_id=pk)
@@ -328,7 +376,9 @@ def get_investible(request, pk):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['POST']) # Add investible
+@permission_classes([IsAuthenticated]) # Creating an investible should likely require authentication
 def create_investible(request):
+    # ... (create_investible content remains the same) ...
     serializer = InvestibleSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
@@ -336,7 +386,9 @@ def create_investible(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['PUT']) # Update investible
+@permission_classes([IsAuthenticated]) # Updating an investible should likely require authentication
 def update_investible(request, pk):
+    # ... (update_investible content remains the same) ...
     try:
         investible = Investible.objects.get(investible_id=pk)
     except Investible.DoesNotExist:
@@ -349,7 +401,9 @@ def update_investible(request, pk):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['DELETE']) # Delete investibles
+@permission_classes([IsAuthenticated]) # Deleting an investible should likely require authentication
 def delete_investibles(request, pk): 
+    # ... (delete_investibles content remains the same) ...
     try:
         user = User.objects.get(investible_id=pk)
     except User.DoesNotExist:

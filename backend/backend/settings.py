@@ -71,12 +71,15 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'api.authentication.CookieJWTAuthentication', # Changed to your custom authentication class
         'rest_framework_simplejwt.authentication.JWTAuthentication', # Keep this as a fallback or for other token types
+        
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
+
 from datetime import timedelta
+
 SIMPLE_JWT = {
     "AUTH_COOKIE": "access_token",  # name of cookie for access token
     "AUTH_COOKIE_REFRESH": "refresh_token", # name of cookie for refresh token
