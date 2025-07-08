@@ -27,8 +27,8 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser, PermissionsMixin):
     
     ROLE_CHOICES = (
-        ('admin', 'Admin'),
-        ('employee', 'Employee'),
+        ('Admin', 'Admin'),
+        ('Employee', 'Employee'),
     )
 
     STATUS_CHOICES = (
@@ -42,7 +42,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     password = models.CharField(max_length=128)  
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
-    user_role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='employee')
+    user_role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='Employee')
     user_status = models.CharField(max_length=8, choices=STATUS_CHOICES, default='active')
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)

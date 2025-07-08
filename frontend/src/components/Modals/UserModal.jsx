@@ -10,7 +10,7 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData, mode, s
         last_name: userData?.last_name || "",
         email: userData?.email || "",
         password: userData?.password || "",
-        user_role: userData?.user_role || "employee",
+        user_role: userData?.user_role || "Employee",
         user_status: userData?.user_status || "active",
     });
 
@@ -22,7 +22,7 @@ export default function UserModal({ isOpen, onClose, onSubmit, userData, mode, s
             last_name: userData?.last_name || "",
             email: userData?.email || "",
             password: userData?.password || "", // Password should typically not be pre-filled for security
-            user_role: userData?.user_role || "employee",
+            user_role: userData?.user_role || "Employee",
             user_status: userData?.user_status || "active",
         });
     }, [userData, isOpen]); // Depend on userData and isOpen

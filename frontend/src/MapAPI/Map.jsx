@@ -227,7 +227,7 @@ export default function Map() {
   }, []);
 
   useEffect(() => {
-    fetch('/assets/san_fernando_boundary.geojson')
+    fetch('/san_fernando_boundary.geojson')
       .then(res => res.json())
       .then(setGeoData)
       .catch(err => console.error("Error loading GeoJSON:", err));

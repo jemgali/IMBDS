@@ -1,24 +1,29 @@
-// MultipleFiles/ReportPage.jsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Layout from '../components/Layout';
-import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router';
-import { useReactToPrint } from 'react-to-print';
+import React, { useState, useEffect, useCallback } from 'react';
+import { PDFViewer } from '@react-pdf/renderer';
+import Layout from '../components/Layout'; // Assuming you have a Layout component
+import { useAuth } from '../context/AuthContext'; // To access apiClient and user
+import { useNavigate } from 'react-router'; // For redirection
 
-const ReportPage = () => {
+import { BusinessSummaryReport } from './reports/BusinessSummaryReport';
+import { BusinessMapReport } from './reports/BusinessMapReport';
+import './reports/ReportsPage.css'; // Your existing CSS
+
+const ReportsPage = () => {
   const { user, apiClient, logout, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  const [activeReport, setActiveReport] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
   const [businesses, setBusinesses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
-  const componentRef = useRef();
 
   const fetchBusinesses = useCallback(async () => {
     setIsLoading(true);
     setFetchError(null);
 
     if (authLoading) {
-      return;
+      return; // Wait for authentication to complete
     }
 
     if (!user) {
@@ -30,17 +35,31 @@ const ReportPage = () => {
 
     try {
       const response = await apiClient.get('businesses/');
-      setBusinesses(response.data);
+      // Assuming your API returns business objects with bsns_name, bsns_address, industry, status
+      // and that markers API returns latitude, longitude, and links to business_id
+      const markersResponse = await apiClient.get('markers/');
+
+      // Map markers to businesses to get location data
+      const businessesWithLocations = response.data.map(business => {
+        const marker = markersResponse.data.find(m => m.business_id === business.business_id);
+        return {
+          ...business,
+          latitude: marker ? marker.latitude : null,
+          longitude: marker ? marker.longitude : null,
+        };
+      });
+
+      setBusinesses(businessesWithLocations);
     } catch (error) {
-      console.error('Error fetching businesses for report:', error);
-      setFetchError('Failed to load business data for the report. Please try again.');
+      console.error('Error fetching businesses for reports:', error);
+      setFetchError('Failed to load business data for reports. Please try again.');
       if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-        logout();
+        logout(); // Log out if unauthorized or forbidden
       }
     } finally {
       setIsLoading(false);
     }
-  }, [user, apiClient, logout, navigate, authLoading]);
+  }, [apiClient, authLoading, user, navigate, logout]);
 
   useEffect(() => {
     fetchBusinesses();
@@ -53,16 +72,9 @@ const ReportPage = () => {
     const pendingBusinesses = businesses.filter(b => b.status === 'pending').length;
     const archivedBusinesses = businesses.filter(b => b.status === 'archived').length;
 
-    const industryDistribution = businesses.reduce((acc, b) => {
+    // You can also calculate byIndustry here if needed
+    const byIndustry = businesses.reduce((acc, b) => {
       acc[b.industry] = (acc[b.industry] || 0) + 1;
-      return acc;
-    }, {});
-
-    const statusBreakdownByIndustry = businesses.reduce((acc, b) => {
-      if (!acc[b.industry]) {
-        acc[b.industry] = { active: 0, inactive: 0, pending: 0, archived: 0 };
-      }
-      acc[b.industry][b.status] += 1;
       return acc;
     }, {});
 
@@ -72,22 +84,20 @@ const ReportPage = () => {
       inactiveBusinesses,
       pendingBusinesses,
       archivedBusinesses,
-      industryDistribution,
-      statusBreakdownByIndustry,
+      byIndustry,
+      businesses: businesses, // Pass the full list of businesses with their location data
     };
   };
 
-  const reportData = generateReportData();
-
-  const handlePrint = useReactToPrint({
-    content: () => componentRef.current,
-    documentTitle: `Business_Summary_Report_${new Date().toLocaleDateString()}`,
-  });
+  const handleShowReport = (reportType) => {
+    setActiveReport(reportType);
+    setShowPreview(true);
+  };
 
   if (isLoading) {
     return (
       <Layout>
-        <div className="p-6 text-center">Loading report data...</div>
+        <div className="p-6 text-center">Loading business data for reports...</div>
       </Layout>
     );
   }
@@ -100,172 +110,61 @@ const ReportPage = () => {
     );
   }
 
+  const reportData = generateReportData();
+
   return (
     <Layout>
-      <div className="p-6">
-        <div className="flex justify-end mb-4">
+      <div className="reports-container">
+        <h1 className="font-bold text-4xl">Business Reports</h1>
+
+        <div className="report-buttons">
           <button
-            onClick={handlePrint}
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="report-button"
+            onClick={() => handleShowReport('summary')}
           >
-            Print/Download Report
+            View Summary Report
+          </button>
+
+          <button
+            className="report-button"
+            onClick={() => handleShowReport('map')}
+          >
+            View Location Report
           </button>
         </div>
 
-        <div ref={componentRef} className="bg-white p-8 shadow-lg rounded-lg">
-          <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
-            Business Summary Report
-          </h1>
-          <p className="text-center text-gray-600 mb-8">
-            Generated on: {new Date().toLocaleDateString()}
-          </p>
-
-          {/* I. Business Overview */}
-          <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-700">I. Business Overview</h2>
-            <ul className="list-disc list-inside space-y-2 text-gray-700">
-              <li>
-                **Total Businesses:** {reportData.totalBusinesses}
-              </li>
-              <li>
-                **Active Businesses:** {reportData.activeBusinesses} (
-                {reportData.totalBusinesses > 0
-                  ? ((reportData.activeBusinesses / reportData.totalBusinesses) * 100).toFixed(1)
-                  : 0}
-                %)
-              </li>
-              <li>
-                **Inactive Businesses:** {reportData.inactiveBusinesses} (
-                {reportData.totalBusinesses > 0
-                  ? ((reportData.inactiveBusinesses / reportData.totalBusinesses) * 100).toFixed(1)
-                  : 0}
-                %)
-              </li>
-              <li>
-                **Pending Businesses:** {reportData.pendingBusinesses} (
-                {reportData.totalBusinesses > 0
-                  ? ((reportData.pendingBusinesses / reportData.totalBusinesses) * 100).toFixed(1)
-                  : 0}
-                %)
-              </li>
-              <li>
-                **Archived Businesses:** {reportData.archivedBusinesses} (
-                {reportData.totalBusinesses > 0
-                  ? ((reportData.archivedBusinesses / reportData.totalBusinesses) * 100).toFixed(1)
-                  : 0}
-                %)
-              </li>
-            </ul>
-          </section>
-
-          {/* II. Business Distribution by Industry */}
-          <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-700">
-              II. Business Distribution by Industry
-            </h2>
-            <ul className="list-disc list-inside space-y-2 text-gray-700">
-              {Object.entries(reportData.industryDistribution).map(([industry, count]) => (
-                <li key={industry}>
-                  **{industry.charAt(0).toUpperCase() + industry.slice(1)}:** {count} (
-                  {reportData.totalBusinesses > 0
-                    ? ((count / reportData.totalBusinesses) * 100).toFixed(1)
-                    : 0}
-                  %)
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {/* III. Business Status Breakdown */}
-          <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-700">
-              III. Business Status Breakdown
-            </h2>
-            {Object.entries(reportData.statusBreakdownByIndustry).map(([industry, statuses]) => (
-              <div key={industry} className="mb-4 pl-4">
-                <h3 className="text-xl font-medium mb-2 text-gray-700">
-                  **{industry.charAt(0).toUpperCase() + industry.slice(1)}:**
-                </h3>
-                <ul className="list-disc list-inside space-y-1 text-gray-600">
-                  <li>Active: {statuses.active}</li>
-                  <li>Inactive: {statuses.inactive}</li>
-                  <li>Pending: {statuses.pending}</li>
-                  <li>Archived: {statuses.archived}</li>
-                </ul>
+        {showPreview && (
+          <div className="modal-backdrop">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h2>
+                  {activeReport === 'summary'
+                    ? 'Business Summary Report'
+                    : 'Business Location Report'}
+                </h2>
+                <button
+                  className="close-button"
+                  onClick={() => setShowPreview(false)}
+                >
+                  ×
+                </button>
               </div>
-            ))}
-          </section>
 
-          {/* IV. Key Observations */}
-          <section className="mb-8">
-            <h2 className="text-2xl font-semibold mb-4 text-gray-700">IV. Key Observations</h2>
-            <ul className="list-disc list-inside space-y-2 text-gray-700">
-              <li>
-                The "{Object.keys(reportData.industryDistribution).reduce((a, b) =>
-                  reportData.industryDistribution[a] > reportData.industryDistribution[b] ? a : b
-                ).charAt(0).toUpperCase() + Object.keys(reportData.industryDistribution).reduce((a, b) =>
-                  reportData.industryDistribution[a] > reportData.industryDistribution[b] ? a : b
-                ).slice(1)}" industry represents the largest sector, accounting for nearly{" "}
-                {reportData.totalBusinesses > 0
-                  ? (
-                      (reportData.industryDistribution[
-                        Object.keys(reportData.industryDistribution).reduce((a, b) =>
-                          reportData.industryDistribution[a] > reportData.industryDistribution[b] ? a : b
-                        )
-                      ] /
-                        reportData.totalBusinesses) *
-                      100
-                    ).toFixed(0)
-                  : 0}
-                % of all businesses.
-              </li>
-              <li>
-                A high percentage of businesses ({reportData.totalBusinesses > 0
-                  ? ((reportData.activeBusinesses / reportData.totalBusinesses) * 100).toFixed(0)
-                  : 0}
-                %) are currently active, indicating a healthy business environment.
-              </li>
-              <li>
-                The number of pending and archived businesses is relatively low, suggesting efficient
-                processing and management.
-              </li>
-            </ul>
-          </section>
-
-          {/* V. Recommendations */}
-          <section>
-            <h2 className="text-2xl font-semibold mb-4 text-gray-700">V. Recommendations</h2>
-            <ul className="list-disc list-inside space-y-2 text-gray-700">
-              <li>
-                **Targeted Support:** Develop tailored support programs for industries with a higher
-                proportion of inactive businesses to help them reactivate.
-              </li>
-              <li>
-                **Growth Opportunities:** Explore opportunities to further support and expand the
-                dominant "{Object.keys(reportData.industryDistribution).reduce((a, b) =>
-                  reportData.industryDistribution[a] > reportData.industryDistribution[b] ? a : b
-                ).charAt(0).toUpperCase() + Object.keys(reportData.industryDistribution).reduce((a, b) =>
-                  reportData.industryDistribution[a] > reportData.industryDistribution[b] ? a : b
-                ).slice(1)}" and "
-                {Object.keys(reportData.industryDistribution).length > 1
-                  ? Object.keys(reportData.industryDistribution).sort((a, b) =>
-                      reportData.industryDistribution[b] - reportData.industryDistribution[a]
-                    )[1].charAt(0).toUpperCase() + Object.keys(reportData.industryDistribution).sort((a, b) =>
-                      reportData.industryDistribution[b] - reportData.industryDistribution[a]
-                    )[1].slice(1)
-                  : ''}
-                " sectors.
-              </li>
-              <li>
-                **Data Granularity:** For future reports, consider including data on business age,
-                employee count, and revenue ranges for a more comprehensive analysis.
-              </li>
-            </ul>
-          </section>
-        </div>
+              <div className="pdf-viewer-container">
+                <PDFViewer width="100%" height="100%">
+                  {activeReport === 'summary' ? (
+                    <BusinessSummaryReport data={reportData} />
+                  ) : (
+                    <BusinessMapReport data={reportData} />
+                  )}
+                </PDFViewer>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );
 };
 
-export default ReportPage;
+export default ReportsPage;

@@ -121,6 +121,11 @@ const UserPage = () => {
       .includes(search.toLowerCase())
   );
 
+  const statusDisplay = {
+  active: "Active",
+  archive: "Archived"
+};
+
   return (
     <Layout>
       <div className="p-6">
@@ -186,7 +191,7 @@ const UserPage = () => {
                     <td className="px-6 py-4">{u.first_name}</td>
                     <td className="px-6 py-4">{u.last_name}</td>
                     <td className="px-6 py-4">{u.user_role}</td>
-                    <td className="px-6 py-4">{u.user_status}</td>
+                    <td className="px-6 py-4">{statusDisplay[u.user_status]}</td>
                     <td className="px-6 py-4">
                       <button
                         className="px-3 py-1 bg-[#3F5BA9] text-white rounded hover:bg-blue-700"
