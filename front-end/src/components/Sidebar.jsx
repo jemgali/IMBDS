@@ -16,9 +16,9 @@ export default function Sidebar() {
 
       {/* Sidebar items */}
       <ul className="space-y-2 mt-4">
-        <SidebarItem to="/Dashboard" icon={<HomeIcon className="h-6 w-6" />} label="Dashboard" collapsed={collapsed} />
+        {/* <SidebarItem to="/Dashboard" icon={<HomeIcon className="h-6 w-6" />} label="Dashboard" collapsed={collapsed} /> */}
         <SidebarItem to="/Map" icon={<MapIcon className="h-6 w-6" />} label="Interactive Map" collapsed={collapsed} />
-        <SidebarItem to="/Investibles" icon={<UserIcon className="h-6 w-6" />} label="Investibles" collapsed={collapsed} />
+        {/* <SidebarItem to="/Investibles" icon={<UserIcon className="h-6 w-6" />} label="Investibles" collapsed={collapsed} /> */}
         <SidebarItem to="/UserManage" icon={<UserIcon className="h-6 w-6" />} label="User Management" collapsed={collapsed} />
       </ul>
     </div>

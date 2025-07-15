@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import UserModal from "./Modal";
+import UserModal from "./Modals/Modal";
 
 export default function UserManage() {
   const [users, setUsers] = useState([]);
@@ -67,7 +67,7 @@ export default function UserManage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <button onClick={handleAdd} className="px-4 py-2 bg-green-600 text-white rounded">
+        <button onClick={handleAdd} className="px-4 py-2 hover:bg-[#5C9A5C] text-white bg-green-700 rounded">
           + Add User
         </button>
       </div>
