@@ -1,13 +1,15 @@
 import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { createRoot } from 'react-dom/client'
+import { BrowserRouter } from 'react-router';
 import App from './App.jsx';
+import AuthProvider from './context/AuthContext'; // <-- import AuthProvider
 import 'leaflet/dist/leaflet.css';
 import './index.css';
-import './app.css';
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+createRoot(document.getElementById('root')).render(
   <BrowserRouter>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </BrowserRouter>
-);
+)

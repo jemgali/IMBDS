@@ -1,24 +1,12 @@
-import { Routes, Route } from "react-router-dom";
-import InteractiveMapPage from './Pages/InteractiveMapPage';
-import LoginPage from "./Pages/LoginPage";
-import UserManagePage from "./Pages/UserManagePage";
-import Dashboard from "./components/Dashboard";
-import InvestiblePage from "./Pages/Investible";
-import './index.css';
-import './app.css';
+import React from 'react'
+import Index from './Index.jsx'
 
-function App() {
+const App = () => {
   return (
-    <Routes>
-      <Route path='/' element={<LoginPage />} />
-      <Route path='/Dashboard' element={<Dashboard />} />
-      <Route path='/Map' element={<InteractiveMapPage />} />
-      <Route path='/Investibles' element={<InvestiblePage />} />
-      <Route path='/UserManage' element={<UserManagePage />} />
-    </Routes>
-
-
-  );
+    <>
+      <Index />
+    </>
+  )
 }
 
-export default App;
+export default App
