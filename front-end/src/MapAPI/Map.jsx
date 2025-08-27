@@ -1,6 +1,6 @@
 // MultipleFiles/Map.jsx
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { MapContainer, TileLayer, useMap, FeatureGroup, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, FeatureGroup, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.pm/dist/leaflet.pm.css';
 import L from 'leaflet';
@@ -8,8 +8,10 @@ import 'leaflet.pm';
 import MarkerFormModal from '../components/Modals/MarkerFormModal';
 import DeleteConfirmModal from '../components/Modals/DeleteModal';
 import MarkerEditModal from '../components/Modals/MarkerEditModal';
-import { apiClient } from '../api/api_urls'; // Import apiClient
+import { apiClient } from '../api/api_urls'; // your apiClient
+import { businessIcons } from '../assets/icons/icons'; // ✅ Font Awesome icons.js
 
+// ---------------- LockedGeoJSONLayer ----------------
 function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
   const map = useMap();
   const hoverState = useRef({ currentLayer: null, timeout: null });
@@ -84,6 +86,7 @@ function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
   return null;
 }
 
+// ---------------- DrawingTools ----------------
 function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragModeChange }) {
   const map = useMap();
 
@@ -103,12 +106,6 @@ function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragM
       removalMode: true,
     });
 
-    map.on('pm:drawstart', (e) => {
-      if (e.workingLayer && e.workingLayer._tooltip) {
-        e.workingLayer._tooltip.remove();
-      }
-    });
-
     map.on('pm:create', (e) => {
       if (e.shape !== 'Marker') return;
 
@@ -117,6 +114,11 @@ function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragM
 
       userLayerGroupRef.current.addLayer(layer);
       layer.pmIgnore = false;
+
+      // ✅ Use Font Awesome default icon immediately
+      if (layer.setIcon && businessIcons.default) {
+        layer.setIcon(businessIcons.default);
+      }
 
       onNewMarker(latlng, layer);
     });
@@ -150,6 +152,7 @@ function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragM
   return null;
 }
 
+// ---------------- Map Component ----------------
 export default function Map() {
   const [geoData, setGeoData] = useState(null);
   const [hoveredBarangay, setHoveredBarangay] = useState(null);
@@ -164,60 +167,24 @@ export default function Map() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [markerToEdit, setMarkerToEdit] = useState(null);
   const [dragModeEnabled, setDragModeEnabled] = useState(false);
+  const [selectedIndustry, setSelectedIndustry] = useState('');
 
-  const handleEditSubmit = async ({ label, location, industry }) => {
-    if (!markerToEdit || !markerToEdit.business || !markerToEdit.business.business_id) {
-      console.warn("No valid business or business_id found in markerToEdit");
-      return;
-    }
-
-    const businessId = markerToEdit.business.business_id;
-
-    try {
-      // Update the Business
-      await apiClient.put(`businesses/${businessId}/`, { // Use apiClient
-        bsns_name: label,
-        bsns_address: location,
-        industry,
-      });
-
-      // Update the Marker label
-      await apiClient.put(`markers/${markerToEdit.marker_id}/`, { // Use apiClient
-        label,
-        latitude: markerToEdit.latitude,
-        longitude: markerToEdit.longitude,
-        business_id: businessId,
-      });
-
-      // Update the local state
-      setSavedMarkers(prev =>
-        prev.map(m => m.marker_id === markerToEdit.marker_id
-          ? {
-            ...m,
-            label,
-            business: {
-              ...m.business,
-              bsns_name: label,
-              bsns_address: location,
-              industry,
-            }
-          }
-          : m
-        )
-      );
-
-      setEditModalOpen(false);
-      setMarkerToEdit(null);
-    } catch (err) {
-      console.error("❌ Error updating marker or business:", err.response?.data || err);
-    }
+  // ✅ helper: update marker icon by markerId
+  const setLayerIconByMarkerId = (markerId, icon) => {
+    const fg = userLayerGroupRef.current;
+    if (!fg) return;
+    fg.eachLayer((layer) => {
+      if (layer?.options?.markerId === markerId) {
+        if (layer.setIcon) layer.setIcon(icon);
+      }
+    });
   };
 
-
+  // ✅ refresh markers from backend
   const refreshMarkers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await apiClient.get('markers/'); // Use apiClient
+      const response = await apiClient.get('markers/');
       setSavedMarkers(response.data);
     } catch (error) {
       console.error('Error refreshing markers:', error);
@@ -228,60 +195,62 @@ export default function Map() {
 
   useEffect(() => {
     fetch('/assets/san_fernando_boundary.geojson')
-      .then(res => res.json())
+      .then((res) => res.json())
       .then(setGeoData)
-      .catch(err => console.error("Error loading GeoJSON:", err));
+      .catch((err) => console.error('Error loading GeoJSON:', err));
 
     refreshMarkers();
   }, [refreshMarkers]);
 
+  // ✅ update marker icons when markers reload
   useEffect(() => {
-    const map = userLayerGroupRef.current._map;
-    if (!map) return;
+    savedMarkers.forEach((m) => {
+      const industry = m.business?.industry;
+      const icon = businessIcons[industry] || businessIcons.default;
+      if (m.marker_id) {
+        setLayerIconByMarkerId(m.marker_id, icon);
+      }
+    });
+  }, [savedMarkers]);
 
-    const enableDragging = () => {
-      userLayerGroupRef.current.eachLayer(layer => {
-        if (layer instanceof L.Marker) {
-          layer.dragging?.enable();
-        }
-      });
-    };
+  // ✅ new marker drawn
+  const handleNewMarker = (latlng, layer) => {
+    setNewMarker({ ...latlng, layer });
+    setPendingLayer(layer);
+    setSelectedIndustry('');
+    if (layer && layer.setIcon) {
+      layer.setIcon(businessIcons.default);
+    }
+    setModalOpen(true);
+  };
 
-    const disableDragging = () => {
-      userLayerGroupRef.current.eachLayer(layer => {
-        if (layer instanceof L.Marker) {
-          layer.dragging?.disable();
-        }
-      });
-    };
+  // ✅ live preview in modal
+  const handleModalIndustryChange = (industryValue) => {
+    setSelectedIndustry(industryValue);
+    const layer = pendingLayer || (newMarker && newMarker.layer);
+    if (layer && layer.setIcon) {
+      layer.setIcon(businessIcons[industryValue] || businessIcons.default);
+    }
+  };
 
-    map.on('pm:dragstart', enableDragging);
-    map.on('pm:dragend', disableDragging);
-
-    return () => {
-      map.off('pm:dragstart', enableDragging);
-      map.off('pm:dragend', disableDragging);
-    };
-  }, []);
-
-  useEffect(() => {
-    const interval = setInterval(refreshMarkers, 30000);
-    return () => clearInterval(interval);
-  }, [refreshMarkers]);
-
+  // ✅ modal submit → save to backend
   const handleMarkerSubmit = async ({ label, location, industry }) => {
     if (!newMarker) return;
 
+    if (newMarker.layer && newMarker.layer.setIcon) {
+      newMarker.layer.setIcon(businessIcons[industry] || businessIcons.default);
+    }
+
     try {
-      const businessRes = await apiClient.post('businesses/', { // Use apiClient
+      const businessRes = await apiClient.post('businesses/', {
         bsns_name: label,
         bsns_address: location,
-        industry
+        industry,
       });
 
       const businessId = businessRes.data.business_id;
 
-      const markerRes = await apiClient.post('markers/', { // Use apiClient
+      const markerRes = await apiClient.post('markers/', {
         label,
         latitude: newMarker.lat,
         longitude: newMarker.lng,
@@ -289,85 +258,77 @@ export default function Map() {
       });
 
       if (newMarker.layer) {
-        newMarker.layer.options.markerId = markerRes.data.marker_id; // Use marker_id from backend
+        newMarker.layer.options.markerId = markerRes.data.marker_id;
       }
 
-      setSavedMarkers(prev => [...prev, markerRes.data]);
+      setSavedMarkers((prev) => [...prev, markerRes.data]);
       setModalOpen(false);
       setNewMarker(null);
+      setPendingLayer(null);
+      setSelectedIndustry('');
     } catch (err) {
-      if (err.response) {
-        console.error('🛑 Marker API error:', err.response.data);
-      } else {
-        console.error('❌ Unexpected marker error:', err);
-      }
+      console.error('🛑 Marker API error:', err.response?.data || err);
     }
   };
 
+  // ✅ delete marker
   const handleMarkerDelete = async (markerId) => {
     try {
-      await apiClient.delete(`markers/${markerId}/`); // Use apiClient
-      setSavedMarkers(prev => prev.filter(m => m.marker_id !== markerId)); // Filter by marker_id
-
-      userLayerGroupRef.current.eachLayer(layer => {
+      await apiClient.delete(`markers/${markerId}/`);
+      setSavedMarkers((prev) => prev.filter((m) => m.marker_id !== markerId));
+      userLayerGroupRef.current.eachLayer((layer) => {
         if (layer.options.markerId === markerId) {
           userLayerGroupRef.current.removeLayer(layer);
         }
       });
     } catch (err) {
-      if (err.response) {
-        console.error('🛑 Backend validation error:', err.response.data);
-      } else {
-        console.error('❌ Error saving marker with business:', err);
-      }
+      console.error('❌ Error deleting marker:', err.response?.data || err);
     }
   };
 
-  const handleMarkerDrag = async (e, marker) => {
-    const { lat, lng } = e.target.getLatLng();
-
-    let businessId = marker.business_id;
-
-    if (Array.isArray(businessId)) {
-      businessId = businessId[0];
-    }
-
-    if (typeof businessId === 'object' && businessId !== null) {
-      businessId = businessId.business_id;
-    }
+  // ✅ edit marker
+  const handleEditSubmit = async ({ label, location, industry }) => {
+    if (!markerToEdit?.business?.business_id) return;
+    const businessId = markerToEdit.business.business_id;
 
     try {
-      await apiClient.put(`markers/${marker.marker_id}/`, { // Use apiClient
-        label: marker.label,
-        latitude: lat,
-        longitude: lng,
+      await apiClient.put(`businesses/${businessId}/`, {
+        bsns_name: label,
+        bsns_address: location,
+        industry,
       });
 
-      setSavedMarkers(prev =>
-        prev.map(m => (m.marker_id === marker.marker_id ? { ...m, latitude: lat, longitude: lng } : m))
+      await apiClient.put(`markers/${markerToEdit.marker_id}/`, {
+        label,
+        latitude: markerToEdit.latitude,
+        longitude: markerToEdit.longitude,
+        business_id: businessId,
+      });
+
+      setSavedMarkers((prev) =>
+        prev.map((m) =>
+          m.marker_id === markerToEdit.marker_id
+            ? {
+                ...m,
+                label,
+                business: { ...m.business, bsns_name: label, bsns_address: location, industry },
+              }
+            : m
+        )
       );
+
+      setLayerIconByMarkerId(markerToEdit.marker_id, businessIcons[industry] || businessIcons.default);
+
+      setEditModalOpen(false);
+      setMarkerToEdit(null);
     } catch (err) {
-      console.error('Error updating marker:', err.response?.data || err);
+      console.error('❌ Error updating marker or business:', err.response?.data || err);
     }
-  };
-
-  const handleNewMarker = (latlng, layer) => {
-    setNewMarker({
-      ...latlng,
-      layer
-    });
-    setModalOpen(true);
-  };
-
-  const confirmMarkerDeletion = (markerId, layer) => {
-    userLayerGroupRef.current.addLayer(layer);
-    setMarkerToDelete(markerId);
-    setPendingLayer(layer);
-    setDeleteModalOpen(true);
   };
 
   return (
     <div className="relative w-full h-full bg-[#EDF1FA] flex">
+      {/* Barangay hover label */}
       {hoveredBarangay && (
         <div className="absolute top-3 left-15 z-[1000] bg-white shadow-md rounded p-3 max-w-xs">
           <div className="text-sm font-semibold text-gray-700">Barangay</div>
@@ -375,49 +336,44 @@ export default function Map() {
         </div>
       )}
 
+      {/* Loading */}
       {isLoading && (
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[1000] bg-white p-4 rounded shadow-lg">
           Loading markers...
         </div>
       )}
 
-      <MapContainer
-        center={[16.6145, 120.3158]}
-        zoom={13}
-        scrollWheelZoom={true}
-        className="w-full h-full z-10"
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          url="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-        />
+      {/* Map */}
+      <MapContainer center={[16.6145, 120.3158]} zoom={13} scrollWheelZoom className="w-full h-full z-10">
+        <TileLayer attribution='&copy; <a href="https://carto.com/">CARTO</a>' url="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
 
         <FeatureGroup ref={userLayerGroupRef}></FeatureGroup>
+
         {geoData && <LockedGeoJSONLayer data={geoData} setHoveredBarangay={setHoveredBarangay} />}
+
         <DrawingTools
           userLayerGroupRef={userLayerGroupRef}
           onNewMarker={handleNewMarker}
-          onRequestDelete={confirmMarkerDeletion}
+          onRequestDelete={(id, layer) => {
+            setMarkerToDelete(id);
+            setPendingLayer(layer);
+            setDeleteModalOpen(true);
+          }}
           onDragModeChange={setDragModeEnabled}
         />
-
 
         {savedMarkers.map((marker) => (
           <Marker
             key={marker.marker_id}
             position={[marker.latitude, marker.longitude]}
             draggable={dragModeEnabled}
+            icon={businessIcons[marker.business?.industry] || businessIcons.default} // ✅ Font Awesome
             eventHandlers={{
-              dragend: (e) => handleMarkerDrag(e, marker)
+              dragend: (e) => handleMarkerDrag(e, marker),
             }}
             ref={(ref) => {
               if (ref) {
                 ref.options.markerId = marker.marker_id;
-                ref.feature = {
-                  properties: {
-                    id: marker.marker_id
-                  }
-                };
               }
             }}
           >
@@ -428,31 +384,30 @@ export default function Map() {
                 <div className="mb-2 capitalize">{marker.business?.industry}</div>
                 <button
                   className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
-                  onClick={() => {
-                    setMarkerToEdit(marker);
-                    setEditModalOpen(true);
-                  }}
+                  onClick={() => setEditModalOpen(true) || setMarkerToEdit(marker)}
                 >
                   Edit
                 </button>
               </div>
             </Popup>
-
           </Marker>
         ))}
       </MapContainer>
 
+      {/* Modals */}
       {modalOpen && (
         <MarkerFormModal
           isOpen={modalOpen}
           onClose={() => {
-            if (newMarker?.layer) {
-              userLayerGroupRef.current.removeLayer(newMarker.layer);
-            }
+            if (newMarker?.layer) userLayerGroupRef.current.removeLayer(newMarker.layer);
             setModalOpen(false);
             setNewMarker(null);
+            setPendingLayer(null);
+            setSelectedIndustry('');
           }}
           onSubmit={handleMarkerSubmit}
+          onIndustryChange={handleModalIndustryChange}
+          initialIndustry={selectedIndustry}
         />
       )}
 
@@ -462,10 +417,8 @@ export default function Map() {
           onCancel={() => {
             setDeleteModalOpen(false);
             setMarkerToDelete(null);
-            if (pendingLayer) {
-              userLayerGroupRef.current.removeLayer(pendingLayer);
-              setPendingLayer(null);
-            }
+            if (pendingLayer) userLayerGroupRef.current.removeLayer(pendingLayer);
+            setPendingLayer(null);
           }}
           onConfirm={async () => {
             await handleMarkerDelete(markerToDelete);
@@ -489,9 +442,11 @@ export default function Map() {
             location: markerToEdit.business?.bsns_address || '',
             industry: markerToEdit.business?.industry || '',
           }}
+          onIndustryChange={(industry) =>
+            setLayerIconByMarkerId(markerToEdit.marker_id, businessIcons[industry] || businessIcons.default)
+          }
         />
       )}
-
     </div>
   );
 }

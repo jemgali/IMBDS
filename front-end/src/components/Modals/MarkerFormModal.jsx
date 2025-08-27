@@ -1,15 +1,27 @@
-import { useState } from 'react';
+// components/Modals/MarkerFormModal.jsx
+import { useState, useEffect } from "react";
+import { businessIcons } from "../../assets/icons/icons";
 
-export default function MarkerFormModal({ isOpen, onSubmit, onClose }) {
-  const [label, setLabel] = useState('');
-  const [location, setLocation] = useState('');
-  const [industry, setIndustry] = useState('');
+export default function MarkerFormModal({
+  isOpen,
+  onSubmit,
+  onClose,
+  onIndustryChange,
+  initialIndustry = "",
+}) {
+  const [label, setLabel] = useState("");
+  const [location, setLocation] = useState("");
+  const [industry, setIndustry] = useState(initialIndustry);
   const [confirming, setConfirming] = useState(false);
 
+  useEffect(() => {
+    setIndustry(initialIndustry || "");
+  }, [initialIndustry]);
+
   const resetForm = () => {
-    setLabel('');
-    setLocation('');
-    setIndustry('');
+    setLabel("");
+    setLocation("");
+    setIndustry("");
     setConfirming(false);
   };
 
@@ -22,6 +34,11 @@ export default function MarkerFormModal({ isOpen, onSubmit, onClose }) {
   const handleCancel = () => {
     resetForm();
     onClose();
+  };
+
+  const handleIndustryChange = (value) => {
+    setIndustry(value);
+    if (typeof onIndustryChange === "function") onIndustryChange(value);
   };
 
   if (!isOpen) return null;
@@ -39,8 +56,11 @@ export default function MarkerFormModal({ isOpen, onSubmit, onClose }) {
               }}
               className="space-y-4"
             >
-              <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
+              {/* Business Name */}
+              <div className="rounded-xl p-2 shadow">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Business Name
+                </label>
                 <input
                   type="text"
                   value={label}
@@ -50,8 +70,11 @@ export default function MarkerFormModal({ isOpen, onSubmit, onClose }) {
                 />
               </div>
 
-              <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+              {/* Address */}
+              <div className="rounded-xl p-2 shadow">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Address
+                </label>
                 <input
                   type="text"
                   value={location}
@@ -61,25 +84,35 @@ export default function MarkerFormModal({ isOpen, onSubmit, onClose }) {
                 />
               </div>
 
-              <div className='rounded-xl p-2 bg-white shadow-[0_-4px_8px_0px_rgba(0,0,0,0.2)]'>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Business Type</label>
-                <select
-                  value={industry}
-                  onChange={(e) => setIndustry(e.target.value)}
-                  className="w-full px-4 text-black"
-                  required
-                >
-                  <option value="">Select Business Type</option>
-                  <option value="mall">Mall</option>
-                  <option value="school">School</option>
-                  <option value="restaurant">Restaurant</option>
-                  <option value="market">Market</option>
-                  <option value="hospital">Hospital</option>
-                  <option value="office">Office</option>
-                  <option value="other">Other</option>
-                </select>
+              {/* Industry */}
+              <div className="rounded-xl p-2 shadow flex items-center gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Business Type
+                  </label>
+                  <select
+                    value={industry}
+                    onChange={(e) => handleIndustryChange(e.target.value)}
+                    className="w-full px-4 text-black"
+                    required
+                  >
+                    <option value="">Select Business Type</option>
+                    <option value="mall">Mall</option>
+                    <option value="school">School</option>
+                    <option value="restaurant">Restaurant</option>
+                    <option value="market">Market</option>
+                    <option value="hospital">Hospital</option>
+                    <option value="office">Office</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                {/* Icon preview */}
+                <div style={{ width: 44, height: 44 }} aria-hidden
+                     icon={businessIcons[industry] || businessIcons.default} />
               </div>
 
+              {/* Buttons */}
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -90,7 +123,7 @@ export default function MarkerFormModal({ isOpen, onSubmit, onClose }) {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[rgb(63,91,169)] hover:bg-blue-300 text-white rounded"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded"
                 >
                   Continue
                 </button>
@@ -101,9 +134,15 @@ export default function MarkerFormModal({ isOpen, onSubmit, onClose }) {
           <>
             <h2 className="text-lg font-semibold mb-4">Confirm Marker Details</h2>
             <div className="text-sm text-gray-700 space-y-2 mb-4">
-              <p><strong>Name:</strong> {label}</p>
-              <p><strong>Address:</strong> {location}</p>
-              <p><strong>Industry:</strong> {industry}</p>
+              <p>
+                <strong>Name:</strong> {label}
+              </p>
+              <p>
+                <strong>Address:</strong> {location}
+              </p>
+              <p>
+                <strong>Industry:</strong> {industry}
+              </p>
             </div>
             <div className="flex justify-end gap-2">
               <button
@@ -114,7 +153,7 @@ export default function MarkerFormModal({ isOpen, onSubmit, onClose }) {
               </button>
               <button
                 onClick={handleFinalSubmit}
-                className="px-4 py-2 hover:bg-[#5C9A5C] text-white bg-green-700 rounded"
+                className="px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded"
               >
                 Confirm & Save
               </button>
