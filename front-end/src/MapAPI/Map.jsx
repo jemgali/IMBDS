@@ -8,8 +8,8 @@ import 'leaflet.pm';
 import MarkerFormModal from '../components/Modals/MarkerFormModal';
 import DeleteConfirmModal from '../components/Modals/DeleteModal';
 import MarkerEditModal from '../components/Modals/MarkerEditModal';
-import { apiClient } from '../api/api_urls'; // your apiClient
-import { businessIcons } from '../assets/icons/icons'; // ✅ Font Awesome icons.js
+import { apiClient } from '../api/api_urls';
+import { businessIcons } from '../assets/icons/icons';
 
 // ---------------- LockedGeoJSONLayer ----------------
 function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
@@ -19,67 +19,99 @@ function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
   useEffect(() => {
     if (!data || !map) return;
 
+    if (!map.getPane('geojsonPane')) {
+      try {
+        map.createPane('geojsonPane');
+        map.getPane('geojsonPane').style.zIndex = 250; // under overlayPane
+      } catch (e) {
+        console.warn('Could not create geojsonPane', e);
+      }
+    }
+
     const clearHighlight = () => {
       if (hoverState.current.currentLayer) {
-        hoverState.current.currentLayer.setStyle({
-          weight: 1,
-          color: 'black',
-          fillColor: 'transparent',
-          fillOpacity: 0,
-        });
+        try {
+          hoverState.current.currentLayer.setStyle({
+            weight: 1,
+            color: 'black',
+            fillColor: 'transparent',
+            fillOpacity: 0,
+          });
+        } catch (_) {}
         hoverState.current.currentLayer = null;
         setHoveredBarangay(null);
       }
     };
 
-    const geoLayer = L.geoJSON(data, {
-      pmIgnore: true,
-      style: {
-        color: 'black',
-        weight: 1,
-        fillColor: 'transparent',
-        fillOpacity: 0,
-      },
-      onEachFeature: (feature, layer) => {
-        const name = feature.properties.name || 'Barangay';
-        layer.pmIgnore = true;
-        layer.options.pmIgnore = true;
-        if (layer.pm) layer.pm.disable();
-        if (layer.dragging) layer.dragging.disable();
+    let geoLayer;
+    try {
+      geoLayer = L.geoJSON(data, {
+        pane: 'geojsonPane',
+        pmIgnore: true,
+        style: {
+          color: 'black',
+          weight: 1,
+          fillColor: 'transparent',
+          fillOpacity: 0,
+        },
+        onEachFeature: (feature, layer) => {
+          const name = feature.properties?.name || 'Barangay';
+          // lock down PM on these layers
+          layer.pmIgnore = true;
+          layer.options.pmIgnore = true;
+          if (layer.pm) layer.pm.disable?.();
+          if (layer.dragging) layer.dragging.disable?.();
 
-        layer.on({
-          mouseover: (e) => {
-            clearTimeout(hoverState.current.timeout);
-            const l = e.target;
-            if (hoverState.current.currentLayer && hoverState.current.currentLayer !== l) {
-              clearHighlight();
-            }
-            hoverState.current.timeout = setTimeout(() => {
-              l.setStyle({
-                weight: 2,
-                color: '#000000',
-                fillColor: '#CCCCCC',
-                fillOpacity: 0.5,
-              });
-              l.bringToFront();
-              hoverState.current.currentLayer = l;
-              setHoveredBarangay(name);
-            }, 30);
-          },
-          mouseout: () => {
-            clearTimeout(hoverState.current.timeout);
-            hoverState.current.timeout = setTimeout(() => {
-              clearHighlight();
-            }, 50);
-          },
-        });
-      },
-    });
+          layer.on({
+            mouseover: (e) => {
+              clearTimeout(hoverState.current.timeout);
+              const l = e.target;
+              if (hoverState.current.currentLayer && hoverState.current.currentLayer !== l) {
+                clearHighlight();
+              }
+              hoverState.current.timeout = setTimeout(() => {
+                try {
+                  l.setStyle({
+                    weight: 2,
+                    color: '#000000',
+                    fillColor: '#CCCCCC',
+                    fillOpacity: 0.5,
+                  });
+                  l.bringToFront();
+                } catch (_) {}
+                hoverState.current.currentLayer = l;
+                setHoveredBarangay(name);
+              }, 30);
+            },
+            mouseout: () => {
+              clearTimeout(hoverState.current.timeout);
+              hoverState.current.timeout = setTimeout(() => {
+                clearHighlight();
+              }, 50);
+            },
+          });
+        },
+      });
+    } catch (err) {
+      console.error('Error creating geoJSON layer:', err);
+      return;
+    }
 
-    geoLayer.addTo(map);
+    try {
+      geoLayer.addTo(map);
+    } catch (err) {
+      console.error('Could not add geoLayer to map (pane may be missing):', err);
+    }
+
     return () => {
       clearTimeout(hoverState.current.timeout);
-      map.removeLayer(geoLayer);
+      try {
+        if (map && geoLayer && map.hasLayer && map.hasLayer(geoLayer)) {
+          map.removeLayer(geoLayer);
+        }
+      } catch (err) {
+        console.warn('Error removing geoLayer (ignored):', err);
+      }
     };
   }, [data, map, setHoveredBarangay]);
 
@@ -87,67 +119,137 @@ function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
 }
 
 // ---------------- DrawingTools ----------------
-function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragModeChange }) {
+// Responsible for PM toolbar and wiring created layers into the FeatureGroup/map.
+// It no longer uses PM removal mode; deletion is handled by the parent (via onRequestDelete).
+function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragModeChange, deleteMode }) {
   const map = useMap();
+
+  const getFeatureGroup = () => {
+    const fg = userLayerGroupRef.current;
+    if (!fg) return null;
+    if (fg instanceof L.FeatureGroup || fg instanceof L.LayerGroup) return fg;
+    return fg._layer || fg;
+  };
 
   useEffect(() => {
     if (!map || !userLayerGroupRef.current) return;
 
+    // disable PM removalMode - we will handle deletes with a confirm modal
     map.pm.addControls({
       position: 'topleft',
       drawMarker: true,
       drawCircle: false,
       drawPolyline: false,
-      drawPolygon: false,
+      drawPolygon: true,
       drawRectangle: false,
       drawCircleMarker: false,
-      editMode: false,
+      editMode: true,
       dragMode: true,
-      removalMode: true,
+      removalMode: false, // <--- disabled
+      tooltips: false,
     });
 
-    map.on('pm:create', (e) => {
-      if (e.shape !== 'Marker') return;
-
+    const onCreate = (e) => {
       const layer = e.layer;
-      const latlng = layer.getLatLng();
 
-      userLayerGroupRef.current.addLayer(layer);
-      layer.pmIgnore = false;
-
-      // ✅ Use Font Awesome default icon immediately
-      if (layer.setIcon && businessIcons.default) {
-        layer.setIcon(businessIcons.default);
+      // prefer overlayPane for user shapes so SVG renderer manages them
+      try {
+        if (!layer.options) layer.options = {};
+        layer.options.pane = 'overlayPane';
+      } catch (err) {
+        // ignore if cannot set
       }
 
-      onNewMarker(latlng, layer);
-    });
+      const fg = getFeatureGroup();
+      try {
+        if (fg && typeof fg.addLayer === 'function') fg.addLayer(layer);
+        else map.addLayer(layer);
+      } catch (err) {
+        try { map.addLayer(layer); } catch (_) { console.warn('Failed to add new layer to FG or map', _); }
+      }
 
-    map.on('pm:remove', (e) => {
+      // ensure PM will act on this layer
+      try {
+        layer.pmIgnore = false;
+        if (layer.options) layer.options.pmIgnore = false;
+      } catch (_) {}
+
+      // add click handler to open confirm modal when deleteMode is active
+      try {
+        layer.on('click', (ev) => {
+          if (deleteMode && typeof onRequestDelete === 'function') {
+            // pass markerId if present on layer.options, otherwise null for unsaved shapes
+            const markerId = layer.options?.markerId ?? null;
+            onRequestDelete(markerId, layer);
+          }
+        });
+      } catch (_) {}
+
+      // if the drawn shape is a Marker, call onNewMarker
+      if (e.shape === 'Marker') {
+        try {
+          const latlng = layer.getLatLng();
+          if (layer.setIcon && businessIcons.default) layer.setIcon(businessIcons.default);
+          if (typeof onNewMarker === 'function') onNewMarker(latlng, layer);
+        } catch (_) {}
+        return;
+      }
+
+      // non-marker: enable pm editing & drag
+      try {
+        if (layer.pm) {
+          if (typeof layer.pm.enable === 'function') layer.pm.enable({ allowSelfIntersection: false });
+          if (typeof layer.pm.toggleDrag === 'function') layer.pm.toggleDrag();
+          else if (layer.dragging && typeof layer.dragging.enable === 'function') layer.dragging.enable();
+        }
+      } catch (err) {
+        console.warn('Could not enable pm editing/drag on layer', err);
+      }
+
+      // avoid handles being left behind by toggling edit mode around drag
+      try {
+        layer.on('pm:dragstart', () => {
+          try { if (layer.pm && typeof layer.pm.disable === 'function') layer.pm.disable(); } catch (_) {}
+        });
+
+        layer.on('pm:dragend', () => {
+          try { if (layer.pm && typeof layer.pm.enable === 'function') layer.pm.enable({ allowSelfIntersection: false }); } catch (_) {}
+        });
+
+        layer.on('pm:editstart', () => {
+          try { if (layer.pm && typeof layer.pm.toggleDrag === 'function') layer.pm.toggleDrag(false); } catch (_) {}
+        });
+      } catch (_) {}
+    };
+
+    const onRemove = (e) => {
+      // Because we disabled PM removal mode, normal PM eraser won't trigger here.
+      // We keep this handler in case other code triggers remove events.
       const layer = e.layer;
-      if (!(layer instanceof L.Marker)) return;
-
-      const markerId = layer.options.markerId;
-      if (markerId) {
-        onRequestDelete(markerId, layer);
-      } else {
-        userLayerGroupRef.current.removeLayer(layer);
+      const fg = getFeatureGroup();
+      try {
+        if (fg && typeof fg.removeLayer === 'function') fg.removeLayer(layer);
+        else map.removeLayer(layer);
+      } catch (err) {
+        try { if (map && map.hasLayer && map.hasLayer(layer)) map.removeLayer(layer); } catch (_) {}
       }
-    });
+    };
 
-    map.on('pm:globaldragmodetoggled', (e) => {
-      if (typeof onDragModeChange === 'function') {
-        onDragModeChange(e.enabled);
-      }
-    });
+    const onGlobalDragToggle = (e) => {
+      if (typeof onDragModeChange === 'function') onDragModeChange(e.enabled);
+    };
+
+    map.on('pm:create', onCreate);
+    map.on('pm:remove', onRemove);
+    map.on('pm:globaldragmodetoggled', onGlobalDragToggle);
 
     return () => {
       map.pm.removeControls();
-      map.off('pm:create');
-      map.off('pm:remove');
-      map.off('pm:globaldragmodetoggled');
+      map.off('pm:create', onCreate);
+      map.off('pm:remove', onRemove);
+      map.off('pm:globaldragmodetoggled', onGlobalDragToggle);
     };
-  }, [map, userLayerGroupRef, onNewMarker, onRequestDelete, onDragModeChange]);
+  }, [map, userLayerGroupRef, onNewMarker, onRequestDelete, onDragModeChange, deleteMode]);
 
   return null;
 }
@@ -160,27 +262,34 @@ export default function Map() {
   const [newMarker, setNewMarker] = useState(null);
   const [savedMarkers, setSavedMarkers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const userLayerGroupRef = useRef(L.featureGroup());
+
+  // react-leaflet will assign the actual FeatureGroup instance here
+  const userLayerGroupRef = useRef(null);
+
+  // deleteMode UI toggle
+  const [deleteMode, setDeleteMode] = useState(false);
+
+  // pending delete object set when user clicks a saved marker/shape while deleteMode is true
+  const [pendingDelete, setPendingDelete] = useState(null); // { layer, markerId } or null
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [markerToDelete, setMarkerToDelete] = useState(null);
-  const [pendingLayer, setPendingLayer] = useState(null);
+
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [markerToEdit, setMarkerToEdit] = useState(null);
   const [dragModeEnabled, setDragModeEnabled] = useState(false);
   const [selectedIndustry, setSelectedIndustry] = useState('');
 
-  // ✅ helper: update marker icon by markerId
+  // Helper: set icon by markerId (used after refresh)
   const setLayerIconByMarkerId = (markerId, icon) => {
     const fg = userLayerGroupRef.current;
     if (!fg) return;
-    fg.eachLayer((layer) => {
+    const layers = fg.getLayers ? fg.getLayers() : fg?._layer?.getLayers?.() || [];
+    layers.forEach((layer) => {
       if (layer?.options?.markerId === markerId) {
         if (layer.setIcon) layer.setIcon(icon);
       }
     });
   };
 
-  // ✅ refresh markers from backend
   const refreshMarkers = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -202,44 +311,32 @@ export default function Map() {
     refreshMarkers();
   }, [refreshMarkers]);
 
-  // ✅ update marker icons when markers reload
   useEffect(() => {
     savedMarkers.forEach((m) => {
       const industry = m.business?.industry;
       const icon = businessIcons[industry] || businessIcons.default;
-      if (m.marker_id) {
-        setLayerIconByMarkerId(m.marker_id, icon);
-      }
+      if (m.marker_id) setLayerIconByMarkerId(m.marker_id, icon);
     });
   }, [savedMarkers]);
 
-  // ✅ new marker drawn
   const handleNewMarker = (latlng, layer) => {
     setNewMarker({ ...latlng, layer });
-    setPendingLayer(layer);
+    setPendingDelete({ layer, markerId: null }); // temporary stash for newly-drawn marker
     setSelectedIndustry('');
-    if (layer && layer.setIcon) {
-      layer.setIcon(businessIcons.default);
-    }
+    if (layer && layer.setIcon) layer.setIcon(businessIcons.default);
     setModalOpen(true);
   };
 
-  // ✅ live preview in modal
   const handleModalIndustryChange = (industryValue) => {
     setSelectedIndustry(industryValue);
-    const layer = pendingLayer || (newMarker && newMarker.layer);
-    if (layer && layer.setIcon) {
-      layer.setIcon(businessIcons[industryValue] || businessIcons.default);
-    }
+    const layer = (pendingDelete && pendingDelete.layer) || (newMarker && newMarker.layer);
+    if (layer && layer.setIcon) layer.setIcon(businessIcons[industryValue] || businessIcons.default);
   };
 
-  // ✅ modal submit → save to backend
   const handleMarkerSubmit = async ({ label, location, industry }) => {
     if (!newMarker) return;
 
-    if (newMarker.layer && newMarker.layer.setIcon) {
-      newMarker.layer.setIcon(businessIcons[industry] || businessIcons.default);
-    }
+    if (newMarker.layer && newMarker.layer.setIcon) newMarker.layer.setIcon(businessIcons[industry] || businessIcons.default);
 
     try {
       const businessRes = await apiClient.post('businesses/', {
@@ -257,36 +354,39 @@ export default function Map() {
         business_id: businessId,
       });
 
-      if (newMarker.layer) {
-        newMarker.layer.options.markerId = markerRes.data.marker_id;
-      }
+      if (newMarker.layer) newMarker.layer.options.markerId = markerRes.data.marker_id;
 
       setSavedMarkers((prev) => [...prev, markerRes.data]);
       setModalOpen(false);
       setNewMarker(null);
-      setPendingLayer(null);
+      setPendingDelete(null);
       setSelectedIndustry('');
     } catch (err) {
       console.error('🛑 Marker API error:', err.response?.data || err);
     }
   };
 
-  // ✅ delete marker
+  // Delete marker from backend and remove from FeatureGroup/state
   const handleMarkerDelete = async (markerId) => {
     try {
-      await apiClient.delete(`markers/${markerId}/`);
-      setSavedMarkers((prev) => prev.filter((m) => m.marker_id !== markerId));
-      userLayerGroupRef.current.eachLayer((layer) => {
-        if (layer.options.markerId === markerId) {
-          userLayerGroupRef.current.removeLayer(layer);
+      const res = await apiClient.delete(`markers/${markerId}/`);
+      // remove any FG layers with that id
+      const fg = userLayerGroupRef.current;
+      const layers = fg?.getLayers ? fg.getLayers() : fg?._layer?.getLayers?.() || [];
+      layers.forEach((layer) => {
+        if (layer.options?.markerId === markerId) {
+          try { fg.removeLayer(layer); } catch (_) { try { layer.remove(); } catch (_) {} }
         }
       });
+      // update savedMarkers
+      setSavedMarkers((prev) => prev.filter((m) => m.marker_id !== markerId));
+      return { ok: true };
     } catch (err) {
       console.error('❌ Error deleting marker:', err.response?.data || err);
+      return { ok: false, error: err };
     }
   };
 
-  // ✅ edit marker
   const handleEditSubmit = async ({ label, location, industry }) => {
     if (!markerToEdit?.business?.business_id) return;
     const businessId = markerToEdit.business.business_id;
@@ -326,8 +426,45 @@ export default function Map() {
     }
   };
 
+  const handleMarkerDrag = async (e, marker) => {
+    const layer = e.target;
+    const { lat, lng } = layer.getLatLng();
+    try {
+      await apiClient.put(`markers/${marker.marker_id}/`, {
+        label: marker.label,
+        latitude: lat,
+        longitude: lng,
+        business_id: marker.business?.business_id,
+      });
+
+      setSavedMarkers((prev) =>
+        prev.map((m) => (m.marker_id === marker.marker_id ? { ...m, latitude: lat, longitude: lng } : m))
+      );
+    } catch (err) {
+      console.error('❌ Error updating marker position:', err.response?.data || err);
+    }
+  };
+
+  // Called from DrawingTools when a user clicks a created shape or marker in deleteMode
+  const handleRequestDelete = (markerId, layer) => {
+    // don't remove the layer — just stash it and open the confirm modal
+    setPendingDelete({ markerId, layer });
+    setDeleteModalOpen(true);
+  };
+
   return (
     <div className="relative w-full h-full bg-[#EDF1FA] flex">
+      {/* delete mode toggle */}
+      <div className="absolute top-3 right-3 z-[1200]">
+        <button
+          className={`px-3 py-1 rounded shadow ${deleteMode ? 'bg-red-600 text-white' : 'bg-white'}`}
+          onClick={() => setDeleteMode((d) => !d)}
+          title={deleteMode ? 'Click a feature to delete it (confirm will appear)' : 'Toggle delete mode'}
+        >
+          {deleteMode ? 'Delete: ON' : 'Delete: OFF'}
+        </button>
+      </div>
+
       {/* Barangay hover label */}
       {hoveredBarangay && (
         <div className="absolute top-3 left-15 z-[1000] bg-white shadow-md rounded p-3 max-w-xs">
@@ -343,23 +480,36 @@ export default function Map() {
         </div>
       )}
 
-      {/* Map */}
-      <MapContainer center={[16.6145, 120.3158]} zoom={13} scrollWheelZoom className="w-full h-full z-10">
+      <MapContainer
+        center={[16.6145, 120.3158]}
+        zoom={13}
+        scrollWheelZoom
+        className="w-full h-full z-10"
+        whenCreated={(map) => {
+          try {
+            if (!map.getPane('geojsonPane')) {
+              map.createPane('geojsonPane');
+              map.getPane('geojsonPane').style.zIndex = 250;
+            }
+          } catch (err) {
+            console.warn('whenCreated pane setup failed', err);
+          }
+        }}
+      >
         <TileLayer attribution='&copy; <a href="https://carto.com/">CARTO</a>' url="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
 
+        {/* FeatureGroup for user-drawn layers */}
         <FeatureGroup ref={userLayerGroupRef}></FeatureGroup>
 
+        {/* locked geojson boundaries (non-editable) */}
         {geoData && <LockedGeoJSONLayer data={geoData} setHoveredBarangay={setHoveredBarangay} />}
 
         <DrawingTools
           userLayerGroupRef={userLayerGroupRef}
           onNewMarker={handleNewMarker}
-          onRequestDelete={(id, layer) => {
-            setMarkerToDelete(id);
-            setPendingLayer(layer);
-            setDeleteModalOpen(true);
-          }}
+          onRequestDelete={handleRequestDelete}
           onDragModeChange={setDragModeEnabled}
+          deleteMode={deleteMode}
         />
 
         {savedMarkers.map((marker) => (
@@ -367,14 +517,21 @@ export default function Map() {
             key={marker.marker_id}
             position={[marker.latitude, marker.longitude]}
             draggable={dragModeEnabled}
-            icon={businessIcons[marker.business?.industry] || businessIcons.default} // ✅ Font Awesome
+            icon={businessIcons[marker.business?.industry] || businessIcons.default}
             eventHandlers={{
+              click: (e) => {
+                if (deleteMode) {
+                  // prevent popup open when in delete mode
+                  e.originalEvent?.stopPropagation?.();
+                  // e.target is the Leaflet marker instance
+                  const layer = e.target;
+                  handleRequestDelete(marker.marker_id, layer);
+                }
+              },
               dragend: (e) => handleMarkerDrag(e, marker),
             }}
             ref={(ref) => {
-              if (ref) {
-                ref.options.markerId = marker.marker_id;
-              }
+              if (ref) ref.options.markerId = marker.marker_id;
             }}
           >
             <Popup>
@@ -394,15 +551,20 @@ export default function Map() {
         ))}
       </MapContainer>
 
-      {/* Modals */}
+      {/* New marker modal */}
       {modalOpen && (
         <MarkerFormModal
           isOpen={modalOpen}
           onClose={() => {
-            if (newMarker?.layer) userLayerGroupRef.current.removeLayer(newMarker.layer);
+            const layer = pendingDelete?.layer || newMarker?.layer;
+            if (layer && !layer.options?.markerId) {
+              const fg = userLayerGroupRef.current;
+              if (fg && typeof fg.removeLayer === 'function') fg.removeLayer(layer);
+              else layer.remove();
+            }
             setModalOpen(false);
             setNewMarker(null);
-            setPendingLayer(null);
+            setPendingDelete(null);
             setSelectedIndustry('');
           }}
           onSubmit={handleMarkerSubmit}
@@ -411,24 +573,45 @@ export default function Map() {
         />
       )}
 
+      {/* Confirm delete modal */}
       {deleteModalOpen && (
         <DeleteConfirmModal
           isOpen={deleteModalOpen}
           onCancel={() => {
+            // simply close modal; we never removed layer because PM removalMode is off
             setDeleteModalOpen(false);
-            setMarkerToDelete(null);
-            if (pendingLayer) userLayerGroupRef.current.removeLayer(pendingLayer);
-            setPendingLayer(null);
+            setPendingDelete(null);
           }}
           onConfirm={async () => {
-            await handleMarkerDelete(markerToDelete);
+            const pd = pendingDelete;
+            if (!pd) {
+              setDeleteModalOpen(false);
+              return;
+            }
+            const { markerId, layer } = pd;
+            if (markerId) {
+              const result = await handleMarkerDelete(markerId);
+              if (!result.ok) {
+                // deletion failed — keep layer and show console warning
+                console.warn('Delete failed, keeping layer on map', result.error);
+              }
+            } else if (layer) {
+              // unsaved local shape: remove from FG
+              try {
+                const fg = userLayerGroupRef.current;
+                if (fg && typeof fg.removeLayer === 'function') fg.removeLayer(layer);
+                else layer.remove();
+              } catch (err) {
+                console.warn('Could not remove unsaved layer', err);
+              }
+            }
             setDeleteModalOpen(false);
-            setMarkerToDelete(null);
-            setPendingLayer(null);
+            setPendingDelete(null);
           }}
         />
       )}
 
+      {/* Edit marker modal */}
       {editModalOpen && markerToEdit && (
         <MarkerEditModal
           isOpen={editModalOpen}

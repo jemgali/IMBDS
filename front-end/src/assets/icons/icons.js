@@ -39,10 +39,10 @@ function makeIcon(fa, color = "#000000", bg = "#ffffff") {
 
 // ✅ Export industry → Leaflet icon
 export const businessIcons = {
-  mall: makeIcon(faStore, "#be185d", "#fce7f3"),
+  mall: makeIcon(faShoppingBag, "#f97316", "#ffedd5"),
   school: makeIcon(faSchool, "#7c3aed", "#ede9fe"),
   restaurant: makeIcon(faUtensils, "#dc2626", "#fee2e2"),
-  mall: makeIcon(faShoppingBag, "#f97316", "#ffedd5"),
+  market: makeIcon(faStore, "#be185d", "#fce7f3"),
   hospital: makeIcon(faHospital, "#16a34a", "#dcfce7"),
   office: makeIcon(faBriefcase, "#2563eb", "#dbeafe"),
   default: makeIcon(faQuestionCircle, "#374151", "#f3f4f6"),
