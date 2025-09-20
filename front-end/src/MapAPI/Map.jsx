@@ -6,10 +6,12 @@ import 'leaflet.pm/dist/leaflet.pm.css';
 import L from 'leaflet';
 import 'leaflet.pm';
 import MarkerFormModal from '../components/Modals/MarkerFormModal';
-import DeleteConfirmModal from '../components/Modals/DeleteModal';
+import DeleteConfirmModal from '../components/Modals/DeleteConfirmModal';
 import MarkerEditModal from '../components/Modals/MarkerEditModal';
 import { apiClient } from '../api/api_urls';
 import { businessIcons } from '../assets/icons/icons';
+import DeleteWarningModal from '../components/Modals/DeleteWarningModal';
+
 
 // ---------------- LockedGeoJSONLayer ----------------
 function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
@@ -37,7 +39,7 @@ function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
             fillColor: 'transparent',
             fillOpacity: 0,
           });
-        } catch (_) {}
+        } catch (_) { }
         hoverState.current.currentLayer = null;
         setHoveredBarangay(null);
       }
@@ -78,7 +80,7 @@ function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
                     fillOpacity: 0.5,
                   });
                   l.bringToFront();
-                } catch (_) {}
+                } catch (_) { }
                 hoverState.current.currentLayer = l;
                 setHoveredBarangay(name);
               }, 30);
@@ -172,7 +174,7 @@ function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragM
       try {
         layer.pmIgnore = false;
         if (layer.options) layer.options.pmIgnore = false;
-      } catch (_) {}
+      } catch (_) { }
 
       // add click handler to open confirm modal when deleteMode is active
       try {
@@ -183,7 +185,7 @@ function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragM
             onRequestDelete(markerId, layer);
           }
         });
-      } catch (_) {}
+      } catch (_) { }
 
       // if the drawn shape is a Marker, call onNewMarker
       if (e.shape === 'Marker') {
@@ -191,7 +193,7 @@ function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragM
           const latlng = layer.getLatLng();
           if (layer.setIcon && businessIcons.default) layer.setIcon(businessIcons.default);
           if (typeof onNewMarker === 'function') onNewMarker(latlng, layer);
-        } catch (_) {}
+        } catch (_) { }
         return;
       }
 
@@ -209,17 +211,17 @@ function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragM
       // avoid handles being left behind by toggling edit mode around drag
       try {
         layer.on('pm:dragstart', () => {
-          try { if (layer.pm && typeof layer.pm.disable === 'function') layer.pm.disable(); } catch (_) {}
+          try { if (layer.pm && typeof layer.pm.disable === 'function') layer.pm.disable(); } catch (_) { }
         });
 
         layer.on('pm:dragend', () => {
-          try { if (layer.pm && typeof layer.pm.enable === 'function') layer.pm.enable({ allowSelfIntersection: false }); } catch (_) {}
+          try { if (layer.pm && typeof layer.pm.enable === 'function') layer.pm.enable({ allowSelfIntersection: false }); } catch (_) { }
         });
 
         layer.on('pm:editstart', () => {
-          try { if (layer.pm && typeof layer.pm.toggleDrag === 'function') layer.pm.toggleDrag(false); } catch (_) {}
+          try { if (layer.pm && typeof layer.pm.toggleDrag === 'function') layer.pm.toggleDrag(false); } catch (_) { }
         });
-      } catch (_) {}
+      } catch (_) { }
     };
 
     const onRemove = (e) => {
@@ -231,7 +233,7 @@ function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragM
         if (fg && typeof fg.removeLayer === 'function') fg.removeLayer(layer);
         else map.removeLayer(layer);
       } catch (err) {
-        try { if (map && map.hasLayer && map.hasLayer(layer)) map.removeLayer(layer); } catch (_) {}
+        try { if (map && map.hasLayer && map.hasLayer(layer)) map.removeLayer(layer); } catch (_) { }
       }
     };
 
@@ -268,6 +270,8 @@ export default function Map() {
 
   // deleteMode UI toggle
   const [deleteMode, setDeleteMode] = useState(false);
+  const [warningOpen, setWarningOpen] = useState(false);
+
 
   // pending delete object set when user clicks a saved marker/shape while deleteMode is true
   const [pendingDelete, setPendingDelete] = useState(null); // { layer, markerId } or null
@@ -375,7 +379,7 @@ export default function Map() {
       const layers = fg?.getLayers ? fg.getLayers() : fg?._layer?.getLayers?.() || [];
       layers.forEach((layer) => {
         if (layer.options?.markerId === markerId) {
-          try { fg.removeLayer(layer); } catch (_) { try { layer.remove(); } catch (_) {} }
+          try { fg.removeLayer(layer); } catch (_) { try { layer.remove(); } catch (_) { } }
         }
       });
       // update savedMarkers
@@ -409,10 +413,10 @@ export default function Map() {
         prev.map((m) =>
           m.marker_id === markerToEdit.marker_id
             ? {
-                ...m,
-                label,
-                business: { ...m.business, bsns_name: label, bsns_address: location, industry },
-              }
+              ...m,
+              label,
+              business: { ...m.business, bsns_name: label, bsns_address: location, industry },
+            }
             : m
         )
       );
@@ -458,7 +462,13 @@ export default function Map() {
       <div className="absolute top-3 right-3 z-[1200]">
         <button
           className={`px-3 py-1 rounded shadow ${deleteMode ? 'bg-red-600 text-white' : 'bg-white'}`}
-          onClick={() => setDeleteMode((d) => !d)}
+          onClick={() => {
+            setDeleteMode((d) => {
+              const next = !d;
+              if (next) setWarningOpen(true); // open warning when turning ON
+              return next;
+            });
+          }}
           title={deleteMode ? 'Click a feature to delete it (confirm will appear)' : 'Toggle delete mode'}
         >
           {deleteMode ? 'Delete: ON' : 'Delete: OFF'}
@@ -523,7 +533,6 @@ export default function Map() {
                 if (deleteMode) {
                   // prevent popup open when in delete mode
                   e.originalEvent?.stopPropagation?.();
-                  // e.target is the Leaflet marker instance
                   const layer = e.target;
                   handleRequestDelete(marker.marker_id, layer);
                 }
@@ -534,19 +543,21 @@ export default function Map() {
               if (ref) ref.options.markerId = marker.marker_id;
             }}
           >
-            <Popup>
-              <div className="text-sm">
-                <div className="font-bold">{marker.label}</div>
-                <div>{marker.business?.bsns_address}</div>
-                <div className="mb-2 capitalize">{marker.business?.industry}</div>
-                <button
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
-                  onClick={() => setEditModalOpen(true) || setMarkerToEdit(marker)}
-                >
-                  Edit
-                </button>
-              </div>
-            </Popup>
+            {!deleteMode && (
+              <Popup>
+                <div className="text-sm">
+                  <div className="font-bold">{marker.label}</div>
+                  <div>{marker.business?.bsns_address}</div>
+                  <div className="mb-2 capitalize">{marker.business?.industry}</div>
+                  <button
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
+                    onClick={() => setEditModalOpen(true) || setMarkerToEdit(marker)}
+                  >
+                    Edit
+                  </button>
+                </div>
+              </Popup>
+            )}
           </Marker>
         ))}
       </MapContainer>
@@ -628,6 +639,19 @@ export default function Map() {
           onIndustryChange={(industry) =>
             setLayerIconByMarkerId(markerToEdit.marker_id, businessIcons[industry] || businessIcons.default)
           }
+        />
+      )}
+      {warningOpen && (
+        <DeleteWarningModal
+          isOpen={warningOpen}
+          onCancel={() => {
+            setWarningOpen(false);
+            setDeleteMode(false); // cancel = turn off delete mode
+          }}
+          onConfirm={() => {
+            setWarningOpen(false);
+            setDeleteMode(true); // confirm = actually enable delete mode
+          }}
         />
       )}
     </div>
