@@ -8,10 +8,11 @@ import 'leaflet.pm';
 import MarkerFormModal from '../components/Modals/MarkerFormModal';
 import DeleteConfirmModal from '../components/Modals/DeleteConfirmModal';
 import MarkerEditModal from '../components/Modals/MarkerEditModal';
+import SelectionModal from '../components/Modals/SelectionModal';
 import { apiClient } from '../api/api_urls';
 import { businessIcons } from '../assets/icons/icons';
+import { investibleIcon } from "../assets/icons/icons";
 import DeleteWarningModal from '../components/Modals/DeleteWarningModal';
-
 
 // ---------------- LockedGeoJSONLayer ----------------
 function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
@@ -24,7 +25,7 @@ function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
     if (!map.getPane('geojsonPane')) {
       try {
         map.createPane('geojsonPane');
-        map.getPane('geojsonPane').style.zIndex = 250; // under overlayPane
+        map.getPane('geojsonPane').style.zIndex = 250;
       } catch (e) {
         console.warn('Could not create geojsonPane', e);
       }
@@ -58,7 +59,6 @@ function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
         },
         onEachFeature: (feature, layer) => {
           const name = feature.properties?.name || 'Barangay';
-          // lock down PM on these layers
           layer.pmIgnore = true;
           layer.options.pmIgnore = true;
           if (layer.pm) layer.pm.disable?.();
@@ -120,9 +120,7 @@ function LockedGeoJSONLayer({ data, setHoveredBarangay }) {
   return null;
 }
 
-// ---------------- DrawingTools ----------------
-// Responsible for PM toolbar and wiring created layers into the FeatureGroup/map.
-// It no longer uses PM removal mode; deletion is handled by the parent (via onRequestDelete).
+// ---------------- DrawingTools (Markers only) ----------------
 function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragModeChange, deleteMode }) {
   const map = useMap();
 
@@ -136,104 +134,57 @@ function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragM
   useEffect(() => {
     if (!map || !userLayerGroupRef.current) return;
 
-    // disable PM removalMode - we will handle deletes with a confirm modal
     map.pm.addControls({
       position: 'topleft',
       drawMarker: true,
       drawCircle: false,
       drawPolyline: false,
-      drawPolygon: true,
+      drawPolygon: false,
       drawRectangle: false,
       drawCircleMarker: false,
-      editMode: true,
+      editMode: false,
       dragMode: true,
-      removalMode: false, // <--- disabled
+      removalMode: false,
       tooltips: false,
+      cutPolygon: false,
     });
 
     const onCreate = (e) => {
       const layer = e.layer;
 
-      // prefer overlayPane for user shapes so SVG renderer manages them
       try {
         if (!layer.options) layer.options = {};
         layer.options.pane = 'overlayPane';
-      } catch (err) {
-        // ignore if cannot set
-      }
+      } catch (_) { }
 
       const fg = getFeatureGroup();
       try {
         if (fg && typeof fg.addLayer === 'function') fg.addLayer(layer);
         else map.addLayer(layer);
-      } catch (err) {
-        try { map.addLayer(layer); } catch (_) { console.warn('Failed to add new layer to FG or map', _); }
+      } catch (_) {
+        try { map.addLayer(layer); } catch (_) { }
       }
 
-      // ensure PM will act on this layer
       try {
         layer.pmIgnore = false;
         if (layer.options) layer.options.pmIgnore = false;
       } catch (_) { }
 
-      // add click handler to open confirm modal when deleteMode is active
       try {
-        layer.on('click', (ev) => {
+        layer.on('click', () => {
           if (deleteMode && typeof onRequestDelete === 'function') {
-            // pass markerId if present on layer.options, otherwise null for unsaved shapes
             const markerId = layer.options?.markerId ?? null;
             onRequestDelete(markerId, layer);
           }
         });
       } catch (_) { }
 
-      // if the drawn shape is a Marker, call onNewMarker
       if (e.shape === 'Marker') {
         try {
           const latlng = layer.getLatLng();
           if (layer.setIcon && businessIcons.default) layer.setIcon(businessIcons.default);
           if (typeof onNewMarker === 'function') onNewMarker(latlng, layer);
         } catch (_) { }
-        return;
-      }
-
-      // non-marker: enable pm editing & drag
-      try {
-        if (layer.pm) {
-          if (typeof layer.pm.enable === 'function') layer.pm.enable({ allowSelfIntersection: false });
-          if (typeof layer.pm.toggleDrag === 'function') layer.pm.toggleDrag();
-          else if (layer.dragging && typeof layer.dragging.enable === 'function') layer.dragging.enable();
-        }
-      } catch (err) {
-        console.warn('Could not enable pm editing/drag on layer', err);
-      }
-
-      // avoid handles being left behind by toggling edit mode around drag
-      try {
-        layer.on('pm:dragstart', () => {
-          try { if (layer.pm && typeof layer.pm.disable === 'function') layer.pm.disable(); } catch (_) { }
-        });
-
-        layer.on('pm:dragend', () => {
-          try { if (layer.pm && typeof layer.pm.enable === 'function') layer.pm.enable({ allowSelfIntersection: false }); } catch (_) { }
-        });
-
-        layer.on('pm:editstart', () => {
-          try { if (layer.pm && typeof layer.pm.toggleDrag === 'function') layer.pm.toggleDrag(false); } catch (_) { }
-        });
-      } catch (_) { }
-    };
-
-    const onRemove = (e) => {
-      // Because we disabled PM removal mode, normal PM eraser won't trigger here.
-      // We keep this handler in case other code triggers remove events.
-      const layer = e.layer;
-      const fg = getFeatureGroup();
-      try {
-        if (fg && typeof fg.removeLayer === 'function') fg.removeLayer(layer);
-        else map.removeLayer(layer);
-      } catch (err) {
-        try { if (map && map.hasLayer && map.hasLayer(layer)) map.removeLayer(layer); } catch (_) { }
       }
     };
 
@@ -242,13 +193,11 @@ function DrawingTools({ userLayerGroupRef, onNewMarker, onRequestDelete, onDragM
     };
 
     map.on('pm:create', onCreate);
-    map.on('pm:remove', onRemove);
     map.on('pm:globaldragmodetoggled', onGlobalDragToggle);
 
     return () => {
       map.pm.removeControls();
       map.off('pm:create', onCreate);
-      map.off('pm:remove', onRemove);
       map.off('pm:globaldragmodetoggled', onGlobalDragToggle);
     };
   }, [map, userLayerGroupRef, onNewMarker, onRequestDelete, onDragModeChange, deleteMode]);
@@ -261,20 +210,19 @@ export default function Map() {
   const [geoData, setGeoData] = useState(null);
   const [hoveredBarangay, setHoveredBarangay] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [markerType, setMarkerType] = useState(null); // "business" | "investible"
+  const [selectionOpen, setSelectionOpen] = useState(false);
   const [newMarker, setNewMarker] = useState(null);
   const [savedMarkers, setSavedMarkers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedMarker, setSelectedMarker] = useState(null); // New state for side panel
 
-  // react-leaflet will assign the actual FeatureGroup instance here
   const userLayerGroupRef = useRef(null);
 
-  // deleteMode UI toggle
   const [deleteMode, setDeleteMode] = useState(false);
   const [warningOpen, setWarningOpen] = useState(false);
 
-
-  // pending delete object set when user clicks a saved marker/shape while deleteMode is true
-  const [pendingDelete, setPendingDelete] = useState(null); // { layer, markerId } or null
+  const [pendingDelete, setPendingDelete] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -323,12 +271,43 @@ export default function Map() {
     });
   }, [savedMarkers]);
 
+  const removeLayerIfUnsaved = (layer) => {
+    try {
+      const fg = userLayerGroupRef.current;
+      if (fg && typeof fg.removeLayer === 'function') fg.removeLayer(layer);
+      else if (layer && typeof layer.remove === 'function') layer.remove();
+    } catch (err) {
+      console.warn('Could not remove layer', err);
+    }
+  };
+
   const handleNewMarker = (latlng, layer) => {
+    // when a marker is drawn we first show the selection modal
     setNewMarker({ ...latlng, layer });
     setPendingDelete({ layer, markerId: null }); // temporary stash for newly-drawn marker
     setSelectedIndustry('');
     if (layer && layer.setIcon) layer.setIcon(businessIcons.default);
+    setSelectionOpen(true);
+  };
+
+  const handleSelectionBusiness = () => {
+    setSelectionOpen(false);
+    setMarkerType('business');
     setModalOpen(true);
+  };
+
+  const handleSelectionInvestible = () => {
+    setSelectionOpen(false);
+    setMarkerType('investible');
+    setModalOpen(true);
+  };
+
+  const handleSelectionCancel = () => {
+    const layer = pendingDelete?.layer || newMarker?.layer;
+    if (layer && !layer.options?.markerId) removeLayerIfUnsaved(layer);
+    setSelectionOpen(false);
+    setNewMarker(null);
+    setPendingDelete(null);
   };
 
   const handleModalIndustryChange = (industryValue) => {
@@ -337,44 +316,111 @@ export default function Map() {
     if (layer && layer.setIcon) layer.setIcon(businessIcons[industryValue] || businessIcons.default);
   };
 
-  const handleMarkerSubmit = async ({ label, location, industry }) => {
-    if (!newMarker) return;
+  // <-- NEW: handler for "Back" from MarkerFormModal -> re-open SelectionModal
+  const handleFormBack = () => {
+    // keep the drawn marker layer in place; show selection again
+    setModalOpen(false);
+    setSelectionOpen(true);
+    setMarkerType(null);
+    // leave newMarker / pendingDelete so user can pick again or cancel
+  };
 
-    if (newMarker.layer && newMarker.layer.setIcon) newMarker.layer.setIcon(businessIcons[industry] || businessIcons.default);
+  const handleMarkerSubmit = async (formData) => {
+    if (!newMarker || !markerType) return;
+
+    // Set icon based on marker type
+    if (newMarker.layer && newMarker.layer.setIcon) {
+      if (markerType === 'business') {
+        newMarker.layer.setIcon(businessIcons[formData.industry] || businessIcons.default);
+      } else if (markerType === 'investible') {
+        newMarker.layer.setIcon(investibleIcon);
+      }
+    }
 
     try {
-      const businessRes = await apiClient.post('businesses/', {
-        bsns_name: label,
-        bsns_address: location,
-        industry,
-      });
+      if (markerType === 'business') {
+        // Business marker - existing logic
+        const businessRes = await apiClient.post('businesses/', {
+          bsns_name: formData.label,
+          bsns_address: formData.location,
+          industry: formData.industry,
+        });
 
-      const businessId = businessRes.data.business_id;
+        const markerRes = await apiClient.post('markers/', {
+          label: formData.label,
+          latitude: newMarker.lat,
+          longitude: newMarker.lng,
+          business_id: businessRes.data.business_id,
+        });
 
-      const markerRes = await apiClient.post('markers/', {
-        label,
-        latitude: newMarker.lat,
-        longitude: newMarker.lng,
-        business_id: businessId,
-      });
+        if (newMarker.layer) newMarker.layer.options.markerId = markerRes.data.marker_id;
+        setSavedMarkers((prev) => [...prev, markerRes.data]);
+      }
 
-      if (newMarker.layer) newMarker.layer.options.markerId = markerRes.data.marker_id;
+      if (markerType === 'investible') {
+        const investibleRes = await apiClient.post('investibles/', {
+          invst_location: formData.location,
+          invst_description: formData.preferred_business || 'Investible property',
+          area: formData.area,
+          preferred_business: formData.preferred_business,
+          landmark: formData.landmark,
+          contact_person: formData.contact_person,
+          contact_number: formData.contact_number,
+          status: formData.status || 'available',
+        });
 
-      setSavedMarkers((prev) => [...prev, markerRes.data]);
+        const markerRes = await apiClient.post('markers/', {
+          label: "Investible", // ✅ Set default label here
+          latitude: newMarker.lat,
+          longitude: newMarker.lng,
+          investible_id: investibleRes.data.investible_id,
+        });
+
+        if (newMarker.layer) newMarker.layer.options.markerId = markerRes.data.marker_id;
+        setSavedMarkers((prev) => [...prev, markerRes.data]);
+      }
       setModalOpen(false);
       setNewMarker(null);
       setPendingDelete(null);
       setSelectedIndustry('');
+      setMarkerType(null);
     } catch (err) {
       console.error('🛑 Marker API error:', err.response?.data || err);
+
+      // Fallback to frontend-only if backend fails
+      const tempMarker = {
+        marker_id: `temp-${Date.now()}`,
+        label: markerType === 'business' ? formData.label : "Investible", // ✅ Default label
+        latitude: newMarker.lat,
+        longitude: newMarker.lng,
+        [markerType]: markerType === 'business'
+          ? {
+            bsns_name: formData.label,
+            bsns_address: formData.location,
+            industry: formData.industry,
+          }
+          : {
+            invst_location: formData.location,
+            invst_description: formData.preferred_business,
+            area: formData.area,
+            preferred_business: formData.preferred_business,
+            landmark: formData.landmark,
+            contact_person: formData.contact_person,
+            contact_number: formData.contact_number,
+            status: formData.status || 'available',
+          }
+      };
+
+      if (newMarker.layer) newMarker.layer.options.markerId = tempMarker.marker_id;
+      setSavedMarkers((prev) => [...prev, tempMarker]);
     }
   };
 
-  // Delete marker from backend and remove from FeatureGroup/state
+  /* --- rest of delete + edit handlers unchanged --- */
+
   const handleMarkerDelete = async (markerId) => {
     try {
       const res = await apiClient.delete(`markers/${markerId}/`);
-      // remove any FG layers with that id
       const fg = userLayerGroupRef.current;
       const layers = fg?.getLayers ? fg.getLayers() : fg?._layer?.getLayers?.() || [];
       layers.forEach((layer) => {
@@ -382,7 +428,6 @@ export default function Map() {
           try { fg.removeLayer(layer); } catch (_) { try { layer.remove(); } catch (_) { } }
         }
       });
-      // update savedMarkers
       setSavedMarkers((prev) => prev.filter((m) => m.marker_id !== markerId));
       return { ok: true };
     } catch (err) {
@@ -391,42 +436,96 @@ export default function Map() {
     }
   };
 
-  const handleEditSubmit = async ({ label, location, industry }) => {
-    if (!markerToEdit?.business?.business_id) return;
-    const businessId = markerToEdit.business.business_id;
+  const handleEditSubmit = async (formData) => {
+    if (!markerToEdit) return;
 
     try {
-      await apiClient.put(`businesses/${businessId}/`, {
-        bsns_name: label,
-        bsns_address: location,
-        industry,
-      });
+      if (formData.markerType === 'business' && markerToEdit.business?.business_id) {
+        // Business editing logic
+        const businessId = markerToEdit.business.business_id;
 
-      await apiClient.put(`markers/${markerToEdit.marker_id}/`, {
-        label,
-        latitude: markerToEdit.latitude,
-        longitude: markerToEdit.longitude,
-        business_id: businessId,
-      });
+        await apiClient.put(`businesses/${businessId}/`, {
+          bsns_name: formData.label,
+          bsns_address: formData.location,
+          industry: formData.industry,
+        });
 
-      setSavedMarkers((prev) =>
-        prev.map((m) =>
-          m.marker_id === markerToEdit.marker_id
-            ? {
-              ...m,
-              label,
-              business: { ...m.business, bsns_name: label, bsns_address: location, industry },
-            }
-            : m
-        )
-      );
+        await apiClient.put(`markers/${markerToEdit.marker_id}/`, {
+          label: formData.label,
+          latitude: markerToEdit.latitude,
+          longitude: markerToEdit.longitude,
+          business_id: businessId,
+        });
 
-      setLayerIconByMarkerId(markerToEdit.marker_id, businessIcons[industry] || businessIcons.default);
+        setSavedMarkers((prev) =>
+          prev.map((m) =>
+            m.marker_id === markerToEdit.marker_id
+              ? {
+                ...m,
+                label: formData.label,
+                business: {
+                  ...m.business,
+                  bsns_name: formData.label,
+                  bsns_address: formData.location,
+                  industry: formData.industry
+                },
+              }
+              : m
+          )
+        );
+
+        setLayerIconByMarkerId(markerToEdit.marker_id, businessIcons[formData.industry] || businessIcons.default);
+
+      } else if (formData.markerType === 'investible' && (markerToEdit.investible?.investible_id || markerToEdit.invst?.investible_id)) {
+        const investibleId = markerToEdit.investible?.investible_id || markerToEdit.invst?.investible_id;
+
+        // ✅ USE ViewSet endpoint (same as businesses)
+        await apiClient.put(`investibles/${investibleId}/`, {
+          invst_location: formData.location,
+          invst_description: formData.preferred_business || 'Investible property',
+          area: formData.area,
+          preferred_business: formData.preferred_business,
+          landmark: formData.landmark,
+          contact_person: formData.contact_person,
+          contact_number: formData.contact_number,
+          status: formData.status || 'available', // Add status field
+        });
+
+        await apiClient.put(`markers/${markerToEdit.marker_id}/`, {
+          label: formData.label,
+          latitude: markerToEdit.latitude,
+          longitude: markerToEdit.longitude,
+          investible_id: investibleId,
+        });
+
+        setSavedMarkers((prev) =>
+          prev.map((m) =>
+            m.marker_id === markerToEdit.marker_id
+              ? {
+                ...m,
+                label: formData.label,
+                investible: {
+                  ...m.investible,
+                  invst_location: formData.location,
+                  invst_description: formData.preferred_business,
+                  area: formData.area,
+                  preferred_business: formData.preferred_business,
+                  landmark: formData.landmark,
+                  contact_person: formData.contact_person,
+                  contact_number: formData.contact_number,
+                  status: formData.status || 'available', // Add status field
+                },
+              }
+              : m
+          )
+        );
+      }
 
       setEditModalOpen(false);
       setMarkerToEdit(null);
+      setSelectedMarker(null); // Close side panel when editing is done
     } catch (err) {
-      console.error('❌ Error updating marker or business:', err.response?.data || err);
+      console.error('❌ Error updating marker:', err.response?.data || err);
     }
   };
 
@@ -449,11 +548,19 @@ export default function Map() {
     }
   };
 
-  // Called from DrawingTools when a user clicks a created shape or marker in deleteMode
   const handleRequestDelete = (markerId, layer) => {
-    // don't remove the layer — just stash it and open the confirm modal
     setPendingDelete({ markerId, layer });
     setDeleteModalOpen(true);
+  };
+
+  const handleMarkerClick = (marker) => {
+    setSelectedMarker(marker);
+  };
+
+  const handleEditClick = (marker) => {
+    setEditModalOpen(true);
+    setMarkerToEdit(marker);
+    setSelectedMarker(null); // Close side panel when opening edit modal
   };
 
   return (
@@ -465,13 +572,12 @@ export default function Map() {
           onClick={() => {
             setDeleteMode((d) => {
               const next = !d;
-              if (next) setWarningOpen(true); // open warning when turning ON
+              if (next) setWarningOpen(true);
               return next;
             });
           }}
-          title={deleteMode ? 'Click a feature to delete it (confirm will appear)' : 'Toggle delete mode'}
         >
-          {deleteMode ? 'Delete: ON' : 'Delete: OFF'}
+          {deleteMode ? 'Marker Delete Mode: ON' : 'Marker Delete Mode: OFF'}
         </button>
       </div>
 
@@ -495,23 +601,10 @@ export default function Map() {
         zoom={13}
         scrollWheelZoom
         className="w-full h-full z-10"
-        whenCreated={(map) => {
-          try {
-            if (!map.getPane('geojsonPane')) {
-              map.createPane('geojsonPane');
-              map.getPane('geojsonPane').style.zIndex = 250;
-            }
-          } catch (err) {
-            console.warn('whenCreated pane setup failed', err);
-          }
-        }}
       >
         <TileLayer attribution='&copy; <a href="https://carto.com/">CARTO</a>' url="https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
 
-        {/* FeatureGroup for user-drawn layers */}
         <FeatureGroup ref={userLayerGroupRef}></FeatureGroup>
-
-        {/* locked geojson boundaries (non-editable) */}
         {geoData && <LockedGeoJSONLayer data={geoData} setHoveredBarangay={setHoveredBarangay} />}
 
         <DrawingTools
@@ -522,50 +615,103 @@ export default function Map() {
           deleteMode={deleteMode}
         />
 
-        {savedMarkers.map((marker) => (
-          <Marker
-            key={marker.marker_id}
-            position={[marker.latitude, marker.longitude]}
-            draggable={dragModeEnabled}
-            icon={businessIcons[marker.business?.industry] || businessIcons.default}
-            eventHandlers={{
-              click: (e) => {
-                if (deleteMode) {
-                  // prevent popup open when in delete mode
-                  e.originalEvent?.stopPropagation?.();
-                  const layer = e.target;
-                  handleRequestDelete(marker.marker_id, layer);
-                }
-              },
-              dragend: (e) => handleMarkerDrag(e, marker),
-            }}
-            ref={(ref) => {
-              if (ref) ref.options.markerId = marker.marker_id;
-            }}
-          >
-            {!deleteMode && (
-              <Popup>
-                <div className="text-sm">
-                  <div className="font-bold">{marker.label}</div>
-                  <div>{marker.business?.bsns_address}</div>
-                  <div className="mb-2 capitalize">{marker.business?.industry}</div>
+        {savedMarkers.map((marker) => {
+          // Determine if it's an investible marker
+          const isInvestible = !!marker.investible || !!marker.invst;
+          const icon = isInvestible
+            ? investibleIcon
+            : businessIcons[marker.business?.industry] || businessIcons.default;
+
+          return (
+            <Marker
+              key={marker.marker_id}
+              position={[marker.latitude, marker.longitude]}
+              draggable={dragModeEnabled}
+              icon={icon}
+              eventHandlers={{
+                click: (e) => {
+                  if (deleteMode) {
+                    e.originalEvent?.stopPropagation?.();
+                    const layer = e.target;
+                    handleRequestDelete(marker.marker_id, layer);
+                  } else {
+                    handleMarkerClick(marker);
+                  }
+                },
+                dragend: (e) => handleMarkerDrag(e, marker),
+              }}
+              ref={(ref) => {
+                if (ref) ref.options.markerId = marker.marker_id;
+              }}
+            />
+          );
+        })}
+      </MapContainer>
+
+      {/* Side Panel */}
+      {selectedMarker && (
+        <div className="absolute top-0 right-0 w-1/2 h-full bg-white shadow-lg z-[9999] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">{selectedMarker.label}</h2>
+              <button
+                onClick={() => setSelectedMarker(null)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="text-sm space-y-3">
+              {selectedMarker.investible || selectedMarker.invst ? (
+                <>
+                  <div><strong>Location:</strong> {(selectedMarker.investible || selectedMarker.invst)?.invst_location}</div>
+                  <div><strong>Status:</strong> {(selectedMarker.investible || selectedMarker.invst)?.status}</div>
+                  <div><strong>Area:</strong> {(selectedMarker.investible || selectedMarker.invst)?.area}</div>
+                  <div><strong>Preferred Business:</strong> {(selectedMarker.investible || selectedMarker.invst)?.preferred_business}</div>
+                  <div><strong>Landmark:</strong> {(selectedMarker.investible || selectedMarker.invst)?.landmark}</div>
+                  <div><strong>Contact Person:</strong> {(selectedMarker.investible || selectedMarker.invst)?.contact_person}</div>
+                  <div><strong>Contact Number:</strong> {(selectedMarker.investible || selectedMarker.invst)?.contact_number}</div>
                   <button
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
-                    onClick={() => setEditModalOpen(true) || setMarkerToEdit(marker)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm mt-4"
+                    onClick={() => handleEditClick(selectedMarker)}
                   >
                     Edit
                   </button>
-                </div>
-              </Popup>
-            )}
-          </Marker>
-        ))}
-      </MapContainer>
+                </>
+              ) : (
+                <>
+                  <div><strong>Address:</strong> {selectedMarker.business?.bsns_address}</div>
+                  <div><strong>Business Line:</strong> {selectedMarker.business?.industry}</div>
+                  <button
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm mt-4"
+                    onClick={() => handleEditClick(selectedMarker)}
+                  >
+                    Edit
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* New marker modal */}
+      {/* Selection modal */}
+      {selectionOpen && (
+        <SelectionModal
+          isOpen={selectionOpen}
+          onCancel={handleSelectionCancel}
+          onBusinessSelect={handleSelectionBusiness}
+          onInvestibleSelect={handleSelectionInvestible}
+        />
+      )}
+
+      {/* Marker modal - PASS onBack so MarkerFormModal's Back works */}
       {modalOpen && (
         <MarkerFormModal
           isOpen={modalOpen}
+          markerType={markerType}
+          onBack={handleFormBack}
           onClose={() => {
             const layer = pendingDelete?.layer || newMarker?.layer;
             if (layer && !layer.options?.markerId) {
@@ -577,6 +723,7 @@ export default function Map() {
             setNewMarker(null);
             setPendingDelete(null);
             setSelectedIndustry('');
+            setMarkerType(null);
           }}
           onSubmit={handleMarkerSubmit}
           onIndustryChange={handleModalIndustryChange}
@@ -584,12 +731,10 @@ export default function Map() {
         />
       )}
 
-      {/* Confirm delete modal */}
       {deleteModalOpen && (
         <DeleteConfirmModal
           isOpen={deleteModalOpen}
           onCancel={() => {
-            // simply close modal; we never removed layer because PM removalMode is off
             setDeleteModalOpen(false);
             setPendingDelete(null);
           }}
@@ -602,12 +747,8 @@ export default function Map() {
             const { markerId, layer } = pd;
             if (markerId) {
               const result = await handleMarkerDelete(markerId);
-              if (!result.ok) {
-                // deletion failed — keep layer and show console warning
-                console.warn('Delete failed, keeping layer on map', result.error);
-              }
+              if (!result.ok) console.warn('Delete failed, keeping layer on map', result.error);
             } else if (layer) {
-              // unsaved local shape: remove from FG
               try {
                 const fg = userLayerGroupRef.current;
                 if (fg && typeof fg.removeLayer === 'function') fg.removeLayer(layer);
@@ -622,7 +763,6 @@ export default function Map() {
         />
       )}
 
-      {/* Edit marker modal */}
       {editModalOpen && markerToEdit && (
         <MarkerEditModal
           isOpen={editModalOpen}
@@ -631,26 +771,25 @@ export default function Map() {
             setMarkerToEdit(null);
           }}
           onSubmit={handleEditSubmit}
-          defaultValues={{
-            label: markerToEdit.business?.bsns_name || '',
-            location: markerToEdit.business?.bsns_address || '',
-            industry: markerToEdit.business?.industry || '',
+          markerToEdit={markerToEdit}
+          onIndustryChange={(industry) => {
+            if (markerToEdit.business) {
+              setLayerIconByMarkerId(markerToEdit.marker_id, businessIcons[industry] || businessIcons.default);
+            }
           }}
-          onIndustryChange={(industry) =>
-            setLayerIconByMarkerId(markerToEdit.marker_id, businessIcons[industry] || businessIcons.default)
-          }
         />
       )}
+
       {warningOpen && (
         <DeleteWarningModal
           isOpen={warningOpen}
           onCancel={() => {
             setWarningOpen(false);
-            setDeleteMode(false); // cancel = turn off delete mode
+            setDeleteMode(false);
           }}
           onConfirm={() => {
             setWarningOpen(false);
-            setDeleteMode(true); // confirm = actually enable delete mode
+            setDeleteMode(true);
           }}
         />
       )}

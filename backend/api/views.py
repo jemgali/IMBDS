@@ -128,36 +128,32 @@ def protected_view(request):
         }
     })
 
-#CRUD Markers
 class MarkerViewSet(viewsets.ModelViewSet):
     queryset = Marker.objects.all()
     serializer_class = MarkerSerializer
 
-    # --- MODIFIED PERMISSIONS HERE ---
     def get_permissions(self):
-        """
-        Instantiates and returns the list of permissions that this view requires.
-        """
-        if self.action in ['list', 'retrieve']: # Allow anyone to view (GET) markers
+        if self.action in ['list', 'retrieve']:
             permission_classes = [AllowAny]
-        else: # For create, update, destroy, require authentication
+        else:
             permission_classes = [IsAuthenticated]
         return [permission() for permission in permission_classes]
-    # --- END MODIFIED PERMISSIONS ---
 
-    # ✅ Fix: allow partial updates (for drag updates)
     def update(self, request, *args, **kwargs):
         return super().update(request, *args, **kwargs, partial=True)
 
-    # ✅ Fix: delete associated business if no markers remain
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         business = instance.business
+        investible = instance.invst  # ✅ ADD INVESTIBLE CLEANUP
 
         self.perform_destroy(instance)
 
         if business and not business.business_markers.exists():
             business.delete()
+            
+        if investible and not investible.investment_markers.exists():  # ✅ SAME PATTERN
+            investible.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -236,17 +232,21 @@ def update_business(request, pk):
         return Response(serializer.data, status=status.HTTP_200_OK)
     return Response({'error': 'Invalid data.', 'details': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-# @api_view(['DELETE'])
-# @permission_classes([IsAuthenticated]) # Deleting a business should likely require authentication
-# def delete_business(request, pk):
-#     # ... (delete_business content remains the same) ...
-#     try:
-#         business = Business.objects.get(business_id=pk)
-#     except Business.DoesNotExist:
-#         return Response({'error': 'Business not found'}, status=status.HTTP_404_NOT_FOUND)
-#     business.delete()
-#     return Response({'message': 'Business deleted successfully'}, status=status.HTTP_204_NO_CONTENT) # 204 No Content for successful deletion
+#CRUD Investible - ✅ ADD THIS (same pattern as BusinessViewSet)
+class InvestibleViewSet(viewsets.ModelViewSet):
+    queryset = Investible.objects.all()
+    serializer_class = InvestibleSerializer
 
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            permission_classes = [AllowAny]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+
+    # ✅ ADD THIS to allow partial updates like MarkerViewSet
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs, partial=True)
 
 #CRUD Reports (These should likely remain protected)
 class ReportViewSet(viewsets.ModelViewSet):
@@ -331,30 +331,12 @@ def update_user(request, pk):
         return Response(updated_user_serializer.data, status=status.HTTP_200_OK)
     return Response({'error': 'Invalid data.', 'details': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-# @api_view(['DELETE'])
-# @permission_classes([IsAuthenticated]) # Deleting a user should be protected
-# def delete_user(request, pk):
-#     # ... (delete_user content remains the same) ...
-#     try:
-#         user = User.objects.get(id=pk)
-#     except User.DoesNotExist:
-#         return Response({'error': 'User not found'}, status = 404)
-
-#     user.delete()
-#     return Response({'message': 'User deleted successfully'}, status = 200)
 
 #CRUD Users (This ViewSet will inherit the global IsAuthenticated unless specified)
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    # If you want to allow listing users publicly, add:
-    # def get_permissions(self):
-    #     if self.action in ['list', 'retrieve']:
-    #         permission_classes = [AllowAny]
-    #     else:
-    #         permission_classes = [IsAuthenticated]
-    #     return [permission() for permission in permission_classes]
-
+    
 
 #CRUD Investibles (These function-based views also need permission_classes)
 @api_view(['GET']) # Fetch all investibles
@@ -376,9 +358,17 @@ def get_investible(request, pk):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['POST']) # Add investible
-@permission_classes([IsAuthenticated]) # Creating an investible should likely require authentication
+@permission_classes([IsAuthenticated]) 
 def create_investible(request):
-    # ... (create_investible content remains the same) ...
+    # ADD VALIDATION LIKE create_business
+    required_fields = ['invst_location', 'invst_description']  # ADD THIS
+    missing_fields = [field for field in required_fields if not request.data.get(field)]  # ADD THIS
+    if missing_fields:  # ADD THIS
+        return Response(  # ADD THIS
+            {'error': 'The following fields are required:', 'missing_fields': missing_fields},  # ADD THIS
+            status=status.HTTP_400_BAD_REQUEST  # ADD THIS
+        )  # ADD THIS
+    
     serializer = InvestibleSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
@@ -403,11 +393,11 @@ def update_investible(request, pk):
 @api_view(['DELETE']) # Delete investibles
 @permission_classes([IsAuthenticated]) # Deleting an investible should likely require authentication
 def delete_investibles(request, pk): 
-    # ... (delete_investibles content remains the same) ...
+    # FIX: Change User to Investible
     try:
-        user = User.objects.get(investible_id=pk)
-    except User.DoesNotExist:
-        return Response({'error': 'User not found'}, status=400)
+        investible = Investible.objects.get(investible_id=pk)  # CHANGE THIS LINE
+    except Investible.DoesNotExist:  # CHANGE THIS LINE
+        return Response({'error': 'Investible not found'}, status=400)  # CHANGE THIS LINE
     
-    user.delete()
-    return Response({'message': 'User deleted successfully'}, status=200)
+    investible.delete()  # CHANGE THIS LINE
+    return Response({'message': 'Investible deleted successfully'}, status=200)  # CHANGE THIS LINE

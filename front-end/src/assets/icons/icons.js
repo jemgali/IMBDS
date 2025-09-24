@@ -9,7 +9,8 @@ import {
   faBuilding,     // generic building
   faQuestionCircle, // default / other
   faSchool,
-  faHospital
+  faHospital,
+  faLandmark,     // 🆕 investible marker
 } from "@fortawesome/free-solid-svg-icons";
 
 // Font Awesome Core renderer
@@ -23,8 +24,8 @@ function makeIcon(fa, color = "#000000", bg = "#ffffff") {
     html: `<div style="
       background:${bg};
       border-radius:50%;
-      width:32px;
-      height:32px;
+      width:25px;
+      height:25px;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -37,7 +38,7 @@ function makeIcon(fa, color = "#000000", bg = "#ffffff") {
   });
 }
 
-// ✅ Export industry → Leaflet icon
+// ✅ Export business industry icons
 export const businessIcons = {
   mall: makeIcon(faShoppingBag, "#f97316", "#ffedd5"),
   school: makeIcon(faSchool, "#7c3aed", "#ede9fe"),
@@ -47,3 +48,10 @@ export const businessIcons = {
   office: makeIcon(faBriefcase, "#2563eb", "#dbeafe"),
   default: makeIcon(faQuestionCircle, "#374151", "#f3f4f6"),
 };
+
+// ✅ Single default icon for Investible markers
+export const investibleIcon = makeIcon(
+  faLandmark,
+  "#0d9488", // teal color
+  "#ccfbf1"  // light teal background
+);

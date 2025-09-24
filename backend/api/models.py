@@ -97,7 +97,6 @@ class Business(models.Model):
 # class Meta:
 #       db_table = 'tbl_businesses'
 
-
 class Investible(models.Model):
     INVESTIBLE_STATUS_CHOICES = (
         ('available', 'Available'),
@@ -108,6 +107,13 @@ class Investible(models.Model):
     invst_location = models.CharField(max_length=255)
     invst_description = models.CharField(max_length=255)
     status = models.CharField(max_length=10, choices=INVESTIBLE_STATUS_CHOICES, default='available')
+    
+    # ✅ ADD THESE FIELDS (same pattern as Business)
+    area = models.CharField(max_length=100, blank=True, null=True)
+    preferred_business = models.CharField(max_length=255, blank=True, null=True)
+    landmark = models.CharField(max_length=255, blank=True, null=True)
+    contact_person = models.CharField(max_length=255, blank=True, null=True)
+    contact_number = models.CharField(max_length=50, blank=True, null=True)
 
 # class Meta:
 #       db_table = 'tbl_investibles'
